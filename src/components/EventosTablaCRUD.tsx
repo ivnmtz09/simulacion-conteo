@@ -19,7 +19,7 @@ import type {
   TipoRegistroEvento
 } from '../types/conteo';
 import { TIPOS_VEHICULOS, LISTA_TIPOS_VEHICULOS } from '../types/conteo';
-import { db, doc, updateDoc, deleteDoc, addDoc, collection } from '../lib/firebase';
+import { db, doc, updateDoc, addDoc, collection } from '../lib/firebase';
 
 interface EventosTablaCRUDProps {
   sesion: SesionConteo;
@@ -44,6 +44,7 @@ export const EventosTablaCRUD: React.FC<EventosTablaCRUDProps> = ({
   const [formTipoVehiculo, setFormTipoVehiculo] = useState<TipoVehiculo>('carro');
   const [formTipoRegistro, setFormTipoRegistro] = useState<TipoRegistroEvento>('salida_cola');
   const [formCategoriaSalida, setFormCategoriaSalida] = useState<string>('respeta');
+  const [formFaseCruce, setFormFaseCruce] = useState<string>('verde');
   const [formMovimiento, setFormMovimiento] = useState<MovimientoGiro>('recto');
   const [formHoraEntrada, setFormHoraEntrada] = useState<string>('');
   const [formHoraLlegaServidor, setFormHoraLlegaServidor] = useState<string>('');
@@ -106,6 +107,7 @@ export const EventosTablaCRUD: React.FC<EventosTablaCRUDProps> = ({
     setFormTipoVehiculo(ev.tipoVehiculo);
     setFormTipoRegistro(ev.tipoRegistro);
     setFormCategoriaSalida(ev.categoriaSalida || 'respeta');
+    setFormFaseCruce(ev.faseCruce || (ev.categoriaSalida === 'se_vuela' ? 'rojo' : 'verde'));
     setFormMovimiento(ev.movimiento || 'recto');
     const entradaIso = ev.horaEntradaCola || new Date(ev.timestampCreacion).toISOString();
     const servidorIso = ev.horaLlegaServidor || entradaIso;
@@ -129,6 +131,7 @@ export const EventosTablaCRUD: React.FC<EventosTablaCRUDProps> = ({
     setFormTipoVehiculo('carro');
     setFormTipoRegistro('salida_cola');
     setFormCategoriaSalida('respeta');
+    setFormFaseCruce('verde');
     setFormMovimiento('recto');
     setFormHoraEntrada(toInputDateTime(ahoraIso));
     setFormHoraLlegaServidor(toInputDateTime(ahoraIso));
@@ -154,6 +157,7 @@ export const EventosTablaCRUD: React.FC<EventosTablaCRUDProps> = ({
         tipoVehiculo: formTipoVehiculo,
         tipoRegistro: formTipoRegistro,
         categoriaSalida: (formTipoRegistro === 'salida_cola' || formTipoRegistro === 'peaton' ? formCategoriaSalida : null) as any,
+        faseCruce: formTipoRegistro === 'salida_cola' ? (formFaseCruce as any) : null,
         movimiento: formTipoRegistro === 'movimiento' ? formMovimiento : null,
         horaEntradaCola: formTipoRegistro === 'salida_cola' ? entradaIso : null,
         horaLlegaServidor: formTipoRegistro === 'salida_cola' ? servidorIso : null,
@@ -194,6 +198,7 @@ export const EventosTablaCRUD: React.FC<EventosTablaCRUDProps> = ({
         tipoVehiculo: formTipoVehiculo,
         tipoRegistro: formTipoRegistro,
         categoriaSalida: (formTipoRegistro === 'salida_cola' || formTipoRegistro === 'peaton' ? formCategoriaSalida : null) as any,
+        faseCruce: formTipoRegistro === 'salida_cola' ? (formFaseCruce as any) : null,
         movimiento: formTipoRegistro === 'movimiento' ? formMovimiento : null,
         horaEntradaCola: formTipoRegistro === 'salida_cola' ? entradaIso : null,
         horaLlegaServidor: formTipoRegistro === 'salida_cola' ? servidorIso : null,
@@ -216,14 +221,14 @@ export const EventosTablaCRUD: React.FC<EventosTablaCRUDProps> = ({
     }
   };
 
-  // Eliminar evento
+  // Eliminar evento (soft delete)
   const handleEliminarEvento = async (id: string) => {
     if (!window.confirm('¿Estás seguro de que deseas eliminar este evento? Se descontará de los contadores.')) {
       return;
     }
     setIdEliminando(id);
     try {
-      await deleteDoc(doc(db, 'eventos', id));
+      await updateDoc(doc(db, 'eventos', id), { enPapelera: true });
     } catch (err) {
       console.error('Error al eliminar evento:', err);
       alert('Error al eliminar evento en Firestore.');
@@ -232,9 +237,10 @@ export const EventosTablaCRUD: React.FC<EventosTablaCRUDProps> = ({
     }
   };
 
-  // Filtros
+  // Filtros (excluyendo papelera)
   const eventosFiltrados = eventos
     .filter((e) => {
+      if (e.enPapelera) return false;
       if (filtroTipo !== 'todos' && e.tipoVehiculo !== filtroTipo) return false;
       if (busqueda.trim()) {
         const q = busqueda.toLowerCase();
@@ -373,15 +379,32 @@ export const EventosTablaCRUD: React.FC<EventosTablaCRUDProps> = ({
                       {/* Categoría / Acción */}
                       <td className="py-2.5 px-3 sm:px-4">
                         {ev.tipoRegistro === 'salida_cola' ? (
-                          ev.categoriaSalida === 'respeta' ? (
-                            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold">
-                              <CheckCircle2 className="w-3.5 h-3.5" /> Cruza verde (respeta)
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20 font-semibold">
-                              <TriangleAlert className="w-3.5 h-3.5" /> Cruza rojo (se vuela)
-                            </span>
-                          )
+                          <div className="flex flex-col gap-1 items-start">
+                            {ev.faseCruce === 'verde' ? (
+                              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold">
+                                <CheckCircle2 className="w-3.5 h-3.5" /> 🟢 Verde ({ev.segundoEnCiclo !== null && ev.segundoEnCiclo !== undefined ? `${ev.segundoEnCiclo}s` : 'respeta'})
+                              </span>
+                            ) : ev.faseCruce === 'amarillo' ? (
+                              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-amber-500/10 text-amber-300 border border-amber-500/20 font-semibold">
+                                <TriangleAlert className="w-3.5 h-3.5 text-amber-400" /> 🟡 Amarillo ({ev.segundoEnCiclo !== null && ev.segundoEnCiclo !== undefined ? `${ev.segundoEnCiclo}s` : 'respeta'})
+                              </span>
+                            ) : ev.faseCruce === 'rojo' ? (
+                              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20 font-semibold">
+                                <TriangleAlert className="w-3.5 h-3.5" /> 🔴 Rojo ({ev.segundoEnCiclo !== null && ev.segundoEnCiclo !== undefined ? `${ev.segundoEnCiclo}s` : 'se vuela'})
+                              </span>
+                            ) : ev.categoriaSalida === 'respeta' ? (
+                              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold">
+                                <CheckCircle2 className="w-3.5 h-3.5" /> Cruza verde (respeta)
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20 font-semibold">
+                                <TriangleAlert className="w-3.5 h-3.5" /> Cruza rojo (se vuela)
+                              </span>
+                            )}
+                            {ev.esFlujoLibre && (
+                              <span className="text-[10px] text-amber-400 font-mono">⚡ Flujo libre</span>
+                            )}
+                          </div>
                         ) : ev.tipoRegistro === 'entrada_cola' ? (
                           <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-amber-500/10 text-amber-300 border border-amber-500/20 font-semibold">
                             Entra a la cola
@@ -551,19 +574,24 @@ export const EventosTablaCRUD: React.FC<EventosTablaCRUDProps> = ({
                 </div>
               )}
 
-              {/* Categoría Salida (si salida_cola) */}
+              {/* Fase Semafórica / Comportamiento (si salida_cola) */}
               {formTipoVehiculo !== 'peaton' && formTipoRegistro === 'salida_cola' && (
                 <div>
                   <label className="block font-semibold text-slate-300 mb-1">
-                    Comportamiento en Semáforo
+                    Fase Semafórica al Cruce (Ciclo 93s)
                   </label>
                   <select
-                    value={formCategoriaSalida}
-                    onChange={(e) => setFormCategoriaSalida(e.target.value)}
+                    value={formFaseCruce}
+                    onChange={(e) => {
+                      const f = e.target.value;
+                      setFormFaseCruce(f);
+                      setFormCategoriaSalida(f === 'rojo' ? 'se_vuela' : 'respeta');
+                    }}
                     className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white font-medium focus:outline-none focus:border-blue-500"
                   >
-                    <option value="respeta">Cruza en verde (respeta)</option>
-                    <option value="se_vuela">Cruza en rojo (se vuela)</option>
+                    <option value="verde">🟢 Verde (0-18s) - Respeta</option>
+                    <option value="amarillo">🟡 Amarillo (18-21s) - Precaución</option>
+                    <option value="rojo">🔴 Rojo (21-93s) - Se vuela / Infracción</option>
                   </select>
                 </div>
               )}

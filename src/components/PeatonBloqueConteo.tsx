@@ -18,10 +18,10 @@ export const PeatonBloqueConteo: React.FC<PeatonBloqueConteoProps> = ({
 }) => {
   const info = TIPOS_VEHICULOS['peaton'];
 
-  // Métricas
-  const countCebra = eventosPeaton.filter((e) => e.categoriaSalida === 'cebra').length;
-  const countFueraCebra = eventosPeaton.filter((e) => e.categoriaSalida === 'fuera_cebra').length;
-  const countAnden = eventosPeaton.filter((e) => e.categoriaSalida === 'anden').length;
+  // Métricas (excluyendo papelera)
+  const countCebra = eventosPeaton.filter((e) => e.categoriaSalida === 'cebra' && !e.enPapelera).length;
+  const countFueraCebra = eventosPeaton.filter((e) => e.categoriaSalida === 'fuera_cebra' && !e.enPapelera).length;
+  const countAnden = eventosPeaton.filter((e) => e.categoriaSalida === 'anden' && !e.enPapelera).length;
   const totalPeatones = countCebra + countFueraCebra + countAnden;
 
   const vibrar = () => {

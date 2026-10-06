@@ -21,20 +21,30 @@ import { VehiculoBloqueConteo } from './components/VehiculoBloqueConteo';
 import { PeatonBloqueConteo } from './components/PeatonBloqueConteo';
 import { EventosTablaCRUD } from './components/EventosTablaCRUD';
 import { HistorialSesiones } from './components/HistorialSesiones';
+import { PapeleraSesiones } from './components/PapeleraSesiones';
 import { SemaforoCronometro } from './components/SemaforoCronometro';
+import { SplashScreen } from './components/SplashScreen';
+import { NotFoundPage } from './components/NotFoundPage';
 import { exportarEventosXLSX, exportarEventosCSV } from './lib/exportUtils';
 import { esCorreoAutorizado } from './config/equipo';
-import { PlusCircle, Activity, StopCircle, Users, MapPin, Clock } from 'lucide-react';
+import { PlusCircle, Activity, StopCircle, Users, MapPin, Clock, Eye } from 'lucide-react';
 
 export default function App() {
+  const [authLoading, setAuthLoading] = useState(true);
+  const [rutaInvalida, setRutaInvalida] = useState(() => {
+    const path = typeof window !== 'undefined' ? window.location.pathname : '/';
+    const validPaths = ['/', '', '/conteo', '/eventos', '/historial', '/sesiones', '/papelera'];
+    return !validPaths.includes(path);
+  });
   const [usuarioActual, setUsuarioActual] = useState<string | null>(null);
   const [sesionActiva, setSesionActiva] = useState<SesionConteo | null>(null);
   const [sesiones, setSesiones] = useState<SesionConteo[]>([]);
   const [eventos, setEventos] = useState<EventoConteo[]>([]);
   const [todosLosEventos, setTodosLosEventos] = useState<EventoConteo[]>([]);
-  const [vistaActiva, setVistaActiva] = useState<'conteo' | 'eventos' | 'historial'>('conteo');
+  const [vistaActiva, setVistaActiva] = useState<'conteo' | 'eventos' | 'historial' | 'papelera'>('conteo');
+  const [modoVistaVehiculos, setModoVistaVehiculos] = useState<'mis_roles' | 'todos'>('mis_roles');
 
-  // Colas FIFO en memoria para cada tipo de vehículo (Tiempo en cola)
+  // Colas FIFO en memoria para cada tipo de vehículo (compatibilidad)
   const [colasMemoria, setColasMemoria] = useState<Record<string, number[]>>({
     moto: [],
     carro: [],
@@ -43,7 +53,7 @@ export default function App() {
     buses: []
   });
 
-  // Servidor FIFO en memoria para cada tipo de vehículo (Tiempo en semáforo/servidor)
+  // Servidor FIFO en memoria para cada tipo de vehículo (compatibilidad)
   const [servidorMemoria, setServidorMemoria] = useState<Record<string, VehiculoEnServidor[]>>({
     moto: [],
     carro: [],
@@ -62,18 +72,22 @@ export default function App() {
   // Escuchar estado de autenticación en Firebase restringido a lista blanca
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
-      if (user && user.email) {
-        if (esCorreoAutorizado(user.email)) {
-          setUsuarioActual(user.email);
-          setModalAuthAbierto(false);
+      try {
+        if (user && user.email) {
+          if (esCorreoAutorizado(user.email)) {
+            setUsuarioActual(user.email);
+            setModalAuthAbierto(false);
+          } else {
+            // Si el correo autenticado no pertenece al equipo, cerrar sesión
+            await signOut(auth);
+            setUsuarioActual(null);
+            setModalAuthAbierto(true);
+          }
         } else {
-          // Si el correo autenticado no pertenece al equipo, cerrar sesión
-          await signOut(auth);
           setUsuarioActual(null);
-          setModalAuthAbierto(true);
         }
-      } else {
-        setUsuarioActual(null);
+      } finally {
+        setAuthLoading(false);
       }
     });
 
@@ -93,20 +107,20 @@ export default function App() {
         docs.sort((a, b) => new Date(b.fechaCreacion).getTime() - new Date(a.fechaCreacion).getTime());
         setSesiones(docs);
 
-        // Mantener sincronizada la sesión activa
+        // Mantener sincronizada la sesión activa (excluyendo papelera)
         setSesionActiva((prev) => {
           if (prev) {
             const actualizada = docs.find((d) => d.id === prev.id);
-            if (actualizada && (actualizada.activa || actualizada.estado === 'abierta')) {
+            if (actualizada && (actualizada.activa || actualizada.estado === 'abierta') && !actualizada.enPapelera) {
               return actualizada;
             }
-            // Si la sesión fue cerrada por cualquier usuario o eliminada
+            // Si la sesión fue cerrada por cualquier usuario o enviada a papelera
             localStorage.removeItem('sesion_activa_id');
             return null;
           }
           const storedId = localStorage.getItem('sesion_activa_id');
           if (storedId) {
-            const guardada = docs.find((d) => d.id === storedId && (d.activa || d.estado === 'abierta'));
+            const guardada = docs.find((d) => d.id === storedId && (d.activa || d.estado === 'abierta') && !d.enPapelera);
             if (guardada) return guardada;
           }
           return null;
@@ -261,16 +275,46 @@ export default function App() {
 
   // Fallback si la sesión no posee asignaciones registradas aún
   const tiposActivosEnSesion: TipoVehiculo[] =
-    Object.keys(asignaciones).length > 0
-      ? misTiposAsignados
-      : (sesionActiva?.tiposSeleccionados && sesionActiva.tiposSeleccionados.length > 0
-          ? sesionActiva.tiposSeleccionados
-          : LISTA_TIPOS_VEHICULOS);
+    modoVistaVehiculos === 'todos'
+      ? LISTA_TIPOS_VEHICULOS
+      : (Object.keys(asignaciones).length > 0
+          ? misTiposAsignados
+          : (sesionActiva?.tiposSeleccionados && sesionActiva.tiposSeleccionados.length > 0
+              ? sesionActiva.tiposSeleccionados
+              : LISTA_TIPOS_VEHICULOS));
 
-  // Sesiones activas del equipo para listar en tiempo real en la pantalla de inicio
+  // Sesiones activas del equipo para listar en tiempo real en la pantalla de inicio (excluyendo papelera)
   const sesionesActivasEquipo = sesiones.filter(
-    (s) => s.activa || s.estado === 'abierta'
+    (s) => (s.activa || s.estado === 'abierta') && !s.enPapelera
   );
+
+  // Pantalla Splash mientras Firebase resuelve la autenticación
+  if (authLoading) {
+    return <SplashScreen />;
+  }
+
+  // Manejo de rutas inexistentes (404)
+  if (rutaInvalida) {
+    return (
+      <NotFoundPage
+        usuarioActual={usuarioActual}
+        onVolverInicio={() => {
+          if (typeof window !== 'undefined') {
+            window.history.pushState(null, '', '/');
+          }
+          setRutaInvalida(false);
+          setVistaActiva('conteo');
+        }}
+        onAbrirAuth={() => {
+          if (typeof window !== 'undefined') {
+            window.history.pushState(null, '', '/');
+          }
+          setRutaInvalida(false);
+          setModalAuthAbierto(true);
+        }}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-blue-600 selection:text-white">
@@ -278,7 +322,8 @@ export default function App() {
       <Navbar
         usuarioActual={usuarioActual}
         sesionActiva={sesionActiva}
-        totalEventos={eventos.length}
+        totalEventos={eventos.filter((e) => !e.enPapelera).length}
+        totalEnPapelera={sesiones.filter((s) => Boolean(s.enPapelera)).length}
         vistaActiva={vistaActiva}
         onCambiarVista={setVistaActiva}
         onAbrirAuth={() => setModalAuthAbierto(true)}
@@ -496,6 +541,34 @@ export default function App() {
 
                   {/* Acciones de la sesión activa */}
                   <div className="flex items-center gap-2 self-stretch md:self-auto justify-end flex-wrap pt-2 md:pt-0 border-t md:border-t-0 border-slate-800">
+                    {/* Selector de visualización: Mis roles vs Todos (supervisión PC en tiempo real) */}
+                    <div className="flex items-center gap-1 bg-slate-950/80 p-0.5 rounded-xl border border-slate-800 text-xs">
+                      <button
+                        type="button"
+                        onClick={() => setModoVistaVehiculos('mis_roles')}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                          modoVistaVehiculos === 'mis_roles'
+                            ? 'bg-blue-600 text-white shadow-sm'
+                            : 'text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        Mis roles ({misTiposAsignados.length})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setModoVistaVehiculos('todos')}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition cursor-pointer flex items-center gap-1 ${
+                          modoVistaVehiculos === 'todos'
+                            ? 'bg-blue-600 text-white shadow-sm'
+                            : 'text-slate-400 hover:text-white'
+                        }`}
+                        title="Ver todos los vehículos de la sesión para supervisión simultánea en tiempo real"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        <span>Ver todos</span>
+                      </button>
+                    </div>
+
                     <button
                       type="button"
                       onClick={() => {
@@ -530,9 +603,9 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* BLOQUE DE CRONOMETRAJE DEL SEMÁFORO (FASES VERDE, AMARILLO, ROJO) */}
+                {/* BLOQUE DE CRONOMETRAJE DEL SEMÁFORO (CICLO CONTINUO 93s: 18V / 3A / 72R) */}
                 <SemaforoCronometro
-                  sesionId={sesionActiva.id}
+                  sesion={sesionActiva}
                   usuario={usuarioActual || 'aforador@aforo.local'}
                 />
 
@@ -580,6 +653,7 @@ export default function App() {
                           tipo={tipo}
                           sesionId={sesionActiva.id}
                           usuario={usuarioActual || 'aforador@aforo.local'}
+                          inicioCicloSemaforo={sesionActiva.inicioCicloSemaforo}
                           colaMemoria={colasMemoria[tipo] || []}
                           servidorMemoria={servidorMemoria[tipo] || []}
                           onActualizarCola={(nuevaCola) => handleActualizarCola(tipo, nuevaCola)}
@@ -625,6 +699,14 @@ export default function App() {
               setVistaActiva('conteo');
             }}
             onCerrarSesionActiva={handleCerrarSesionActiva}
+          />
+        )}
+
+        {/* Vista Papelera de sesiones (Soft Delete) */}
+        {vistaActiva === 'papelera' && (
+          <PapeleraSesiones
+            sesiones={sesiones}
+            todosLosEventos={todosLosEventos}
           />
         )}
       </main>

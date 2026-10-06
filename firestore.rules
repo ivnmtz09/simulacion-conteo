@@ -35,10 +35,8 @@ service cloud.firestore {
       // Cualquier integrante del equipo puede actualizarla (para unirse, asignar roles o cerrarla)
       allow update: if esDelEquipo();
 
-      // Solo el creador o un admin puede eliminar la sesión
-      allow delete: if esDelEquipo() && (
-        resource.data.usuario == request.auth.token.email || isAdmin()
-      );
+      // Eliminación física permanente permitida a cualquier usuario autorizado del equipo
+      allow delete: if esDelEquipo();
 
       // Todos los integrantes del equipo pueden ver las sesiones activas e históricas
       allow read: if esDelEquipo();
@@ -58,10 +56,8 @@ service cloud.firestore {
         isAdmin()
       );
 
-      // Eliminación permitida exclusivamente al dueño o a un admin
-      allow delete: if esDelEquipo() && (
-        resource.data.usuario == request.auth.token.email || isAdmin()
-      );
+      // Eliminación permitida a cualquier integrante del equipo (para papelera y purga)
+      allow delete: if esDelEquipo();
     }
 
     // Reglas para la colección 'esperas' (muestras de tiempo de espera)

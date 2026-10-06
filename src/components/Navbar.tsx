@@ -1,13 +1,14 @@
 import React from 'react';
-import { User, LogOut, LogIn, PlusCircle, FileSpreadsheet, Download, Activity, ListFilter, History } from 'lucide-react';
+import { User, LogOut, LogIn, PlusCircle, FileSpreadsheet, Download, Activity, ListFilter, History, Trash2 } from 'lucide-react';
 import type { SesionConteo } from '../types/conteo';
 
 interface NavbarProps {
   usuarioActual: string | null;
   sesionActiva: SesionConteo | null;
   totalEventos: number;
-  vistaActiva: 'conteo' | 'eventos' | 'historial';
-  onCambiarVista: (vista: 'conteo' | 'eventos' | 'historial') => void;
+  totalEnPapelera?: number;
+  vistaActiva: 'conteo' | 'eventos' | 'historial' | 'papelera';
+  onCambiarVista: (vista: 'conteo' | 'eventos' | 'historial' | 'papelera') => void;
   onAbrirAuth: () => void;
   onCerrarSesion: () => void;
   onAbrirNuevaSesion: () => void;
@@ -19,6 +20,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   usuarioActual,
   sesionActiva,
   totalEventos,
+  totalEnPapelera,
   vistaActiva,
   onCambiarVista,
   onAbrirAuth,
@@ -157,6 +159,23 @@ export const Navbar: React.FC<NavbarProps> = ({
             >
               <History className="w-4 h-4" />
               <span>Sesiones</span>
+            </button>
+
+            <button
+              onClick={() => onCambiarVista('papelera')}
+              className={`touch-btn flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition ${
+                vistaActiva === 'papelera'
+                  ? 'bg-rose-600 text-white shadow'
+                  : 'text-slate-400 hover:text-rose-300 hover:bg-slate-800/60'
+              }`}
+            >
+              <Trash2 className="w-4 h-4" />
+              <span>Papelera</span>
+              {typeof totalEnPapelera === 'number' && totalEnPapelera > 0 && (
+                <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-rose-500/30 text-rose-300 border border-rose-500/40">
+                  {totalEnPapelera}
+                </span>
+              )}
             </button>
           </nav>
 

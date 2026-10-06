@@ -81,6 +81,9 @@ export function generarFilasDetalle(sesion: SesionConteo, eventos: EventoConteo[
       'Usuario': ev.usuario,
       'Tipo de Vehículo': infoVehiculo?.nombre || ev.tipoVehiculo,
       'Tipo de Registro': etiquetaTipoRegistro(ev.tipoRegistro),
+      'Fase Semáforo': ev.faseCruce ? ev.faseCruce.toUpperCase() : (ev.categoriaSalida === 'respeta' ? 'VERDE' : ev.categoriaSalida === 'se_vuela' ? 'ROJO' : 'N/A'),
+      'Segundo en Ciclo (0-92s)': ev.segundoEnCiclo !== null && ev.segundoEnCiclo !== undefined ? ev.segundoEnCiclo : 'N/A',
+      'Número de Ciclo': ev.numeroCiclo !== null && ev.numeroCiclo !== undefined ? ev.numeroCiclo : 'N/A',
       'Categoría Salida': etiquetaCategoria(ev.categoriaSalida),
       'Movimiento / Giro': ev.movimiento ? ev.movimiento.toUpperCase() : 'N/A',
       'Hora Entrada Cola': ev.horaEntradaCola ? formatHora(ev.horaEntradaCola) : 'N/A',
@@ -89,6 +92,7 @@ export function generarFilasDetalle(sesion: SesionConteo, eventos: EventoConteo[
       'Tiempo en Cola (s)': ev.tiempoEnColaSeg !== null && ev.tiempoEnColaSeg !== undefined ? ev.tiempoEnColaSeg : 'N/A',
       'Tiempo en Servidor (s)': ev.tiempoEnServidorSeg !== null && ev.tiempoEnServidorSeg !== undefined ? ev.tiempoEnServidorSeg : 'N/A',
       'Tiempo Total (s)': tiempoTotal,
+      'Flujo Libre (Sin cola)': ev.esFlujoLibre ? 'SÍ' : 'NO',
       'Registro Manual': ev.esManual ? 'SÍ' : 'NO'
     };
   });
@@ -109,6 +113,7 @@ export function generarFilasResumenVissim(eventos: EventoConteo[]) {
         'Categoría': info.nombre,
         'Total Flujo': total,
         'Respeta (Verde / Cebra)': cebra,
+        'Cruce en Amarillo': 0,
         'Infracción (Rojo / Fuera cebra)': fueraCebra,
         'Paso por Andén': anden,
         '% Cumplimiento': total > 0 ? `${((cebra / total) * 100).toFixed(1)}%` : '0%',
@@ -123,9 +128,10 @@ export function generarFilasResumenVissim(eventos: EventoConteo[]) {
     }
 
     const salidas = eventosTipo.filter((e) => e.tipoRegistro === 'salida_cola');
-    const respeta = salidas.filter((e) => e.categoriaSalida === 'respeta').length;
-    const seVuela = salidas.filter((e) => e.categoriaSalida === 'se_vuela').length;
-    const totalSalidas = respeta + seVuela;
+    const verde = salidas.filter((e) => e.faseCruce === 'verde' || (!e.faseCruce && e.categoriaSalida === 'respeta')).length;
+    const amarillo = salidas.filter((e) => e.faseCruce === 'amarillo').length;
+    const rojo = salidas.filter((e) => e.faseCruce === 'rojo' || (!e.faseCruce && e.categoriaSalida === 'se_vuela')).length;
+    const totalSalidas = salidas.length;
 
     const esperasCola = salidas
       .map((e) => e.tiempoEnColaSeg)
@@ -161,10 +167,11 @@ export function generarFilasResumenVissim(eventos: EventoConteo[]) {
     return {
       'Categoría': info.nombre,
       'Total Flujo': totalSalidas,
-      'Respeta (Verde / Cebra)': respeta,
-      'Infracción (Rojo / Fuera cebra)': seVuela,
+      'Respeta (Verde / Cebra)': verde,
+      'Cruce en Amarillo': amarillo,
+      'Infracción (Rojo / Fuera cebra)': rojo,
       'Paso por Andén': 'N/A',
-      '% Cumplimiento': totalSalidas > 0 ? `${((respeta / totalSalidas) * 100).toFixed(1)}%` : '0%',
+      '% Cumplimiento': totalSalidas > 0 ? `${(((verde + amarillo) / totalSalidas) * 100).toFixed(1)}%` : '0%',
       'T. Cola Promedio (s)': promCola,
       'T. Servidor Promedio (s)': promServidor,
       'Tiempo Total Promedio (s)': promTotal,
@@ -177,15 +184,16 @@ export function generarFilasResumenVissim(eventos: EventoConteo[]) {
 }
 
 export function exportarEventosXLSX(sesion: SesionConteo, eventos: EventoConteo[]) {
+  const eventosValidos = eventos.filter((e) => !e.enPapelera);
   const wb = XLSX.utils.book_new();
 
   // Hoja 1: Resumen Vissim
-  const resumenData = generarFilasResumenVissim(eventos);
+  const resumenData = generarFilasResumenVissim(eventosValidos);
   const wsResumen = XLSX.utils.json_to_sheet(resumenData);
   XLSX.utils.book_append_sheet(wb, wsResumen, 'Resumen VISSIM');
 
   // Hoja 2: Detalle Completo de Eventos
-  const detalleData = generarFilasDetalle(sesion, eventos);
+  const detalleData = generarFilasDetalle(sesion, eventosValidos);
   const wsDetalle = XLSX.utils.json_to_sheet(detalleData);
   XLSX.utils.book_append_sheet(wb, wsDetalle, 'Eventos Detallados');
 
@@ -195,7 +203,8 @@ export function exportarEventosXLSX(sesion: SesionConteo, eventos: EventoConteo[
 }
 
 export function exportarEventosCSV(sesion: SesionConteo, eventos: EventoConteo[]) {
-  const detalleData = generarFilasDetalle(sesion, eventos);
+  const eventosValidos = eventos.filter((e) => !e.enPapelera);
+  const detalleData = generarFilasDetalle(sesion, eventosValidos);
   const ws = XLSX.utils.json_to_sheet(detalleData);
   const csvContent = XLSX.utils.sheet_to_csv(ws);
 

@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, CheckSquare, Square, Users, Lock, Check, AlertCircle } from 'lucide-react';
 import type { TipoVehiculo, SesionConteo } from '../types/conteo';
 import { TIPOS_VEHICULOS, LISTA_TIPOS_VEHICULOS } from '../types/conteo';
-import { db, doc, updateDoc } from '../lib/firebase';
+import { db, doc, updateDoc, onSnapshot } from '../lib/firebase';
 
 interface UnirseSesionModalProps {
   abierto: boolean;
@@ -57,13 +57,42 @@ const UnirseSesionDialog: React.FC<UnirseSesionDialogProps> = ({
   onCerrar,
   onUnirseExitoso
 }) => {
+  const [sesionViva, setSesionViva] = useState<SesionConteo>(sesion);
   const [tiposElegidos, setTiposElegidos] = useState<TipoVehiculo[]>(() =>
     obtenerTiposIniciales(sesion, usuarioActual)
   );
   const [error, setError] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
 
-  const asignaciones = sesion.asignaciones || {};
+  // Escuchar la sesión en tiempo real para que las asignaciones tomadas por otros aparezcan inmediatamente
+  useEffect(() => {
+    try {
+      const unsub = onSnapshot(doc(db, 'sesiones', sesion.id), (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data() as Omit<SesionConteo, 'id'>;
+          const actualizada: SesionConteo = {
+            id: docSnap.id,
+            ...data
+          };
+          setSesionViva(actualizada);
+
+          // Si otro integrante tomó un rol que teníamos seleccionado, desmarcarlo reactivamente
+          const asignacionesActuales = data.asignaciones || {};
+          setTiposElegidos((prev) =>
+            prev.filter((tipo) => {
+              const asignadoA = asignacionesActuales[tipo];
+              return !asignadoA || asignadoA === usuarioActual;
+            })
+          );
+        }
+      });
+      return () => unsub();
+    } catch (e) {
+      console.warn('Listener de sesión viva:', e);
+    }
+  }, [sesion.id, usuarioActual]);
+
+  const asignaciones = sesionViva.asignaciones || {};
 
   const toggleTipo = (tipo: TipoVehiculo) => {
     const asignadoA = asignaciones[tipo];
@@ -106,13 +135,13 @@ const UnirseSesionDialog: React.FC<UnirseSesionDialogProps> = ({
       });
 
       // Actualizar lista de participantes
-      const participantesPrevios = sesion.participantes || [sesion.usuario];
+      const participantesPrevios = sesionViva.participantes || [sesionViva.usuario];
       const nuevosParticipantes = Array.from(new Set([...participantesPrevios, usuarioActual]));
 
       // Todos los tipos activos en la sesión
       const nuevosTiposSeleccionados = Object.keys(nuevasAsignaciones) as TipoVehiculo[];
 
-      const docRef = doc(db, 'sesiones', sesion.id);
+      const docRef = doc(db, 'sesiones', sesionViva.id);
       await updateDoc(docRef, {
         asignaciones: nuevasAsignaciones,
         participantes: nuevosParticipantes,
@@ -120,7 +149,7 @@ const UnirseSesionDialog: React.FC<UnirseSesionDialogProps> = ({
       });
 
       const sesionActualizada: SesionConteo = {
-        ...sesion,
+        ...sesionViva,
         asignaciones: nuevasAsignaciones,
         participantes: nuevosParticipantes,
         tiposSeleccionados: nuevosTiposSeleccionados

@@ -125,8 +125,15 @@ export interface EventoConteo {
   // Giros / movimientos independientes
   movimiento?: MovimientoGiro | null;
 
+  // Ciclo semafórico automático (93s)
+  faseCruce?: FaseSemaforo | null;
+  segundoEnCiclo?: number | null;
+  numeroCiclo?: number | null;
+
   timestampCreacion: number;
   esManual?: boolean;
+  esFlujoLibre?: boolean;
+  enPapelera?: boolean;
 }
 
 export interface SesionConteo {
@@ -139,6 +146,11 @@ export interface SesionConteo {
   tiposSeleccionados: TipoVehiculo[];
   activa: boolean;
   estado?: 'abierta' | 'cerrada';
+  inicioCicloSemaforo?: number | null; // Timestamp epoch en ms del inicio de la fase verde
+  ultimaResincronizacionSemaforo?: number | null;
+  sincronizadoPor?: string | null;
+  enPapelera?: boolean;
+  fechaEliminacion?: string | null;
   fechaCreacion: string;
   fechaCierre?: string | null;
 }

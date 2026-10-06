@@ -13,7 +13,7 @@ import {
 import type { SesionConteo, EventoConteo } from '../types/conteo';
 import { TIPOS_VEHICULOS } from '../types/conteo';
 import { exportarEventosXLSX, exportarEventosCSV } from '../lib/exportUtils';
-import { db, doc, deleteDoc } from '../lib/firebase';
+import { db, doc, updateDoc } from '../lib/firebase';
 
 interface HistorialSesionesProps {
   sesiones: SesionConteo[];
@@ -32,6 +32,9 @@ export const HistorialSesiones: React.FC<HistorialSesionesProps> = ({
 }) => {
   const [eliminandoId, setEliminandoId] = useState<string | null>(null);
 
+  // Filtrar estrictamente sesiones que no estén en la papelera
+  const sesionesVisibles = sesiones.filter((s) => !s.enPapelera);
+
   const formatFecha = (iso: string) => {
     const d = new Date(iso);
     return isNaN(d.getTime())
@@ -46,15 +49,18 @@ export const HistorialSesiones: React.FC<HistorialSesionesProps> = ({
 
   const handleEliminar = async (sesion: SesionConteo, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!window.confirm(`¿Deseas eliminar permanentemente la sesión "${sesion.nombre}"?`)) {
+    if (!window.confirm(`¿Deseas enviar la sesión "${sesion.nombre}" a la papelera? Podrás restaurarla en la pestaña Papelera.`)) {
       return;
     }
     setEliminandoId(sesion.id);
     try {
-      await deleteDoc(doc(db, 'sesiones', sesion.id));
+      await updateDoc(doc(db, 'sesiones', sesion.id), {
+        enPapelera: true,
+        fechaEliminacion: new Date().toISOString()
+      });
     } catch (err) {
       console.error(err);
-      alert('Error al eliminar sesión en Firestore.');
+      alert('Error al enviar sesión a la papelera en Firestore.');
     } finally {
       setEliminandoId(null);
     }
@@ -62,13 +68,13 @@ export const HistorialSesiones: React.FC<HistorialSesionesProps> = ({
 
   const handleExportarXLSX = (sesion: SesionConteo, e: React.MouseEvent) => {
     e.stopPropagation();
-    const evs = todosLosEventos.filter((ev) => ev.sesionId === sesion.id);
+    const evs = todosLosEventos.filter((ev) => ev.sesionId === sesion.id && !ev.enPapelera);
     exportarEventosXLSX(sesion, evs);
   };
 
   const handleExportarCSV = (sesion: SesionConteo, e: React.MouseEvent) => {
     e.stopPropagation();
-    const evs = todosLosEventos.filter((ev) => ev.sesionId === sesion.id);
+    const evs = todosLosEventos.filter((ev) => ev.sesionId === sesion.id && !ev.enPapelera);
     exportarEventosCSV(sesion, evs);
   };
 
@@ -87,13 +93,13 @@ export const HistorialSesiones: React.FC<HistorialSesionesProps> = ({
       </div>
 
       <div className="grid grid-cols-1 gap-3">
-        {sesiones.length === 0 ? (
+        {sesionesVisibles.length === 0 ? (
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-12 text-center text-slate-500 text-sm">
-            No hay sesiones registradas. Crea una nueva sesión para comenzar el aforo.
+            No hay sesiones activas ni archivadas. Crea una nueva sesión para comenzar el aforo.
           </div>
         ) : (
-          sesiones.map((s) => {
-            const eventosDeEsta = todosLosEventos.filter((e) => e.sesionId === s.id);
+          sesionesVisibles.map((s) => {
+            const eventosDeEsta = todosLosEventos.filter((e) => e.sesionId === s.id && !e.enPapelera);
             const esActiva = s.id === sesionActivaId;
 
             return (
@@ -209,7 +215,7 @@ export const HistorialSesiones: React.FC<HistorialSesionesProps> = ({
 
                   <button
                     type="button"
-                    title="Eliminar sesión"
+                    title="Enviar sesión a la papelera"
                     disabled={eliminandoId === s.id}
                     onClick={(e) => handleEliminar(s, e)}
                     className="touch-btn p-2 rounded-xl bg-slate-800 hover:bg-red-500/20 text-slate-400 hover:text-red-400 border border-slate-700 disabled:opacity-50"
