@@ -48,8 +48,8 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </span>
               </div>
               {sesionActiva ? (
-                <div className="flex items-center gap-1.5 text-xs text-slate-400 truncate max-w-[200px] sm:max-w-md">
-                  <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <div className="flex items-center gap-1.5 text-xs text-slate-400 truncate max-w-[180px] sm:max-w-md">
+                  <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse flex-shrink-0" />
                   <span className="font-medium text-slate-200 truncate">{sesionActiva.nombre}</span>
                 </div>
               ) : (
@@ -60,6 +60,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* User profile & session action */}
           <div className="flex items-center gap-2">
+            {/* "Nueva Sesión" visible en sm+; en móvil está en BottomNav como FAB */}
             <button
               onClick={onAbrirNuevaSesion}
               className="touch-btn hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm transition"
@@ -94,15 +95,19 @@ export const Navbar: React.FC<NavbarProps> = ({
             )}
 
             {usuarioActual ? (
-              <div className="flex items-center gap-2 bg-slate-800/80 border border-slate-700 rounded-lg px-2.5 py-1">
-                <User className="w-3.5 h-3.5 text-slate-400" />
-                <span className="text-xs text-slate-300 font-medium max-w-[110px] sm:max-w-[150px] truncate" title={usuarioActual}>
+              <div className="flex items-center gap-1.5 bg-slate-800/80 border border-slate-700 rounded-lg px-2 py-1">
+                <User className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                {/* Email visible solo en sm+ para no saturar el header en móvil */}
+                <span
+                  className="hidden sm:inline text-xs text-slate-300 font-medium max-w-[110px] sm:max-w-[150px] truncate"
+                  title={usuarioActual}
+                >
                   {usuarioActual}
                 </span>
                 <button
                   onClick={onCerrarSesion}
-                  title="Cerrar sesión"
-                  className="touch-btn text-slate-400 hover:text-red-400 ml-1"
+                  title={`Cerrar sesión (${usuarioActual})`}
+                  className="touch-btn text-slate-400 hover:text-red-400"
                 >
                   <LogOut className="w-3.5 h-3.5" />
                 </button>
@@ -119,12 +124,12 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
         </div>
 
-        {/* Navigation Tabs */}
-        <div className="flex items-center justify-between border-t border-slate-800/80 pt-1.5">
+        {/* Navigation Tabs — solo visibles en md+ (en móvil los maneja BottomNav) */}
+        <div className="hidden md:flex items-center justify-between border-t border-slate-800/80 pt-1.5">
           <nav className="flex items-center gap-1 sm:gap-2">
             <button
               onClick={() => onCambiarVista('conteo')}
-              className={`touch-btn flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition ${
+              className={`touch-btn flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs sm:text-sm font-semibold transition ${
                 vistaActiva === 'conteo'
                   ? 'bg-blue-600 text-white shadow'
                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
@@ -136,7 +141,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             <button
               onClick={() => onCambiarVista('eventos')}
-              className={`touch-btn flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition ${
+              className={`touch-btn flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs sm:text-sm font-semibold transition ${
                 vistaActiva === 'eventos'
                   ? 'bg-blue-600 text-white shadow'
                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
@@ -151,7 +156,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             <button
               onClick={() => onCambiarVista('historial')}
-              className={`touch-btn flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition ${
+              className={`touch-btn flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs sm:text-sm font-semibold transition ${
                 vistaActiva === 'historial'
                   ? 'bg-blue-600 text-white shadow'
                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
@@ -163,7 +168,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             <button
               onClick={() => onCambiarVista('papelera')}
-              className={`touch-btn flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition ${
+              className={`touch-btn flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs sm:text-sm font-semibold transition ${
                 vistaActiva === 'papelera'
                   ? 'bg-rose-600 text-white shadow'
                   : 'text-slate-400 hover:text-rose-300 hover:bg-slate-800/60'
@@ -178,14 +183,6 @@ export const Navbar: React.FC<NavbarProps> = ({
               )}
             </button>
           </nav>
-
-          <button
-            onClick={onAbrirNuevaSesion}
-            className="touch-btn sm:hidden flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold bg-emerald-600 text-white"
-          >
-            <PlusCircle className="w-3.5 h-3.5" />
-            <span>Nueva</span>
-          </button>
         </div>
       </div>
     </header>

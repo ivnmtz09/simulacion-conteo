@@ -14,6 +14,7 @@ import {
   addDoc
 } from './lib/firebase';
 import { Navbar } from './components/Navbar';
+import { BottomNav } from './components/BottomNav';
 import { AuthModal } from './components/AuthModal';
 import { NuevaSesionModal } from './components/NuevaSesionModal';
 import { FinalizarSesionModal } from './components/FinalizarSesionModal';
@@ -410,7 +411,7 @@ export default function App() {
       />
 
       {/* Contenido principal según la pestaña activa */}
-      <main className="flex-1 pb-safe">
+      <main className="flex-1 pb-safe pb-24 md:pb-safe">
         {vistaActiva === 'conteo' && (
           <div className="max-w-7xl mx-auto px-3 sm:px-6 py-4 space-y-4">
             {/* Si no hay sesión activa creada */}
@@ -832,6 +833,21 @@ export default function App() {
           setVistaActiva('conteo');
           setModalUnirseAbierto(false);
           setSesionParaUnirse(null);
+        }}
+      />{/* UnirseSesionModal end */}
+
+      {/* Barra de navegación inferior — solo visible en móvil (md:hidden interno) */}
+      <BottomNav
+        vistaActiva={vistaActiva}
+        onCambiarVista={setVistaActiva}
+        totalEventos={eventos.filter((e) => !e.enPapelera).length}
+        totalEnPapelera={sesiones.filter((s) => Boolean(s.enPapelera)).length}
+        onAbrirNuevaSesion={() => {
+          if (!usuarioActual) {
+            setModalAuthAbierto(true);
+          } else {
+            setModalNuevaSesionAbierto(true);
+          }
         }}
       />
     </div>
