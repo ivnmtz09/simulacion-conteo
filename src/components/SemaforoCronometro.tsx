@@ -14,23 +14,29 @@ import {
   DURACION_CICLO_SEG,
   DURACION_VERDE_SEG,
   DURACION_AMARILLO_SEG,
-  DURACION_ROJO_SEG
+  DURACION_ROJO_SEG,
+  normalizarTimestampMs
 } from '../lib/semaforoUtils';
 import { db, doc, updateDoc } from '../lib/firebase';
 
 interface SemaforoCronometroProps {
   sesion: SesionConteo;
   usuario: string;
+  onSincronizarLocal?: (inicioMs: number) => void;
 }
 
 export const SemaforoCronometro: React.FC<SemaforoCronometroProps> = ({
   sesion,
-  usuario
+  usuario,
+  onSincronizarLocal
 }) => {
   const [ahoraMs, setAhoraMs] = useState<number>(() => Date.now());
   const [modalResincronizarAbierto, setModalResincronizarAbierto] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [mensajeExito, setMensajeExito] = useState<string | null>(null);
+
+  // Estado local inmediato cuando el usuario pulsa sincronizar (0ms)
+  const [inicioCicloLocal, setInicioCicloLocal] = useState<number | null>(null);
 
   // Tick local cada 250ms para refresco visual suave sin peticiones a red
   useEffect(() => {
@@ -40,22 +46,32 @@ export const SemaforoCronometro: React.FC<SemaforoCronometroProps> = ({
     return () => clearInterval(interval);
   }, []);
 
-  const estado = calcularEstadoSemaforo(ahoraMs, sesion.inicioCicloSemaforo);
+  const inicioRemoto = normalizarTimestampMs(sesion.inicioCicloSemaforo);
+  const inicioEfectivo = inicioCicloLocal ?? inicioRemoto;
+  const estado = calcularEstadoSemaforo(ahoraMs, inicioEfectivo);
 
   // Sincronizar o Re-sincronizar el ciclo semafórico
   const handleSincronizar = async () => {
-    setGuardando(true);
     const ahora = Date.now();
+
+    // 1. REFLEJO VISUAL INSTANTÁNEO EN LOCAL (0 ms)
+    setInicioCicloLocal(ahora);
+    if (onSincronizarLocal) {
+      onSincronizarLocal(ahora);
+    }
+
+    setModalResincronizarAbierto(false);
+    setMensajeExito('¡Semáforo sincronizado exitosamente en verde!');
+    setTimeout(() => setMensajeExito(null), 4000);
+
+    setGuardando(true);
     try {
+      // 2. Persistir en Firestore para todo el equipo
       await updateDoc(doc(db, 'sesiones', sesion.id), {
         inicioCicloSemaforo: ahora,
         ultimaResincronizacionSemaforo: ahora,
         sincronizadoPor: usuario
       });
-
-      setModalResincronizarAbierto(false);
-      setMensajeExito('¡Semáforo sincronizado exitosamente en verde!');
-      setTimeout(() => setMensajeExito(null), 4000);
     } catch (err) {
       console.error('Error al sincronizar semáforo en Firestore:', err);
     } finally {

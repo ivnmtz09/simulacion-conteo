@@ -17,6 +17,32 @@ export interface EstadoSemaforoCalculado {
 }
 
 /**
+ * Normaliza cualquier formato de timestamp (number, string ISO, objeto Firestore Timestamp) a epoch en milisegundos.
+ */
+export function normalizarTimestampMs(valor: unknown): number | null {
+  if (valor === null || valor === undefined) return null;
+  if (typeof valor === 'number' && !isNaN(valor) && valor > 0) return valor;
+  if (typeof valor === 'string') {
+    const num = Number(valor);
+    if (!isNaN(num) && num > 0) return num;
+    const parsed = new Date(valor).getTime();
+    if (!isNaN(parsed) && parsed > 0) return parsed;
+  }
+  if (typeof valor === 'object' && valor !== null) {
+    const v = valor as { toMillis?: () => number; seconds?: number; nanoseconds?: number };
+    if (typeof v.toMillis === 'function') {
+      const ms = v.toMillis();
+      if (!isNaN(ms) && ms > 0) return ms;
+    }
+    if (typeof v.seconds === 'number') {
+      const ms = v.seconds * 1000 + (v.nanoseconds ? v.nanoseconds / 1000000 : 0);
+      if (!isNaN(ms) && ms > 0) return ms;
+    }
+  }
+  return null;
+}
+
+/**
  * Calcula determinísticamente la fase y estado actual del semáforo a partir
  * de un ciclo continuo de 93 segundos (18s Verde, 3s Amarillo, 72s Rojo).
  * 
@@ -27,9 +53,10 @@ export interface EstadoSemaforoCalculado {
  */
 export function calcularEstadoSemaforo(
   timestampMs: number,
-  inicioCicloMs?: number | null
+  inicioCicloMs?: unknown
 ): EstadoSemaforoCalculado {
-  if (!inicioCicloMs || isNaN(inicioCicloMs) || inicioCicloMs <= 0) {
+  const t0 = normalizarTimestampMs(inicioCicloMs);
+  if (!t0) {
     return {
       sincronizado: false,
       fase: null,
@@ -42,7 +69,7 @@ export function calcularEstadoSemaforo(
     };
   }
 
-  const diffMs = Math.max(0, timestampMs - inicioCicloMs);
+  const diffMs = Math.max(0, timestampMs - t0);
   const segundosDesdeInicio = diffMs / 1000;
   const segundoEnCicloExacto = segundosDesdeInicio % DURACION_CICLO_SEG;
   const segundoEnCiclo = Math.floor(segundoEnCicloExacto);

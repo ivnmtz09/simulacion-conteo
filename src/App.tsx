@@ -7,6 +7,7 @@ import {
   onAuthStateChanged,
   signOut,
   collection,
+  doc,
   query,
   where,
   onSnapshot,
@@ -94,8 +95,10 @@ export default function App() {
     return () => unsub();
   }, []);
 
-  // Escuchar todas las sesiones disponibles
+  // Escuchar todas las sesiones disponibles (dependiente del usuario autenticado)
   useEffect(() => {
+    if (!usuarioActual) return;
+
     try {
       const q = query(collection(db, 'sesiones'));
       const unsub = onSnapshot(q, (snapshot) => {
@@ -133,9 +136,31 @@ export default function App() {
     } catch (e) {
       console.warn('Fallback offline para sesiones:', e);
     }
-  }, []);
+  }, [usuarioActual]);
 
   const sesionIdActiva = sesionActiva?.id;
+
+  // Escuchar la sesión activa directamente en tiempo real para cambios inmediatos (semáforo, asignaciones)
+  useEffect(() => {
+    if (!sesionIdActiva || !usuarioActual) return;
+
+    try {
+      const unsub = onSnapshot(doc(db, 'sesiones', sesionIdActiva), (docSnap) => {
+        if (docSnap.exists()) {
+          const data = { id: docSnap.id, ...(docSnap.data() as Omit<SesionConteo, 'id'>) };
+          if (!data.enPapelera && (data.activa || data.estado === 'abierta')) {
+            setSesionActiva((prev) => (prev ? { ...prev, ...data } : data));
+          }
+        }
+      }, (err) => {
+        console.warn('Error en listener directo de sesionActiva:', err);
+      });
+
+      return () => unsub();
+    } catch (e) {
+      console.warn('Fallback offline para sesionActiva:', e);
+    }
+  }, [sesionIdActiva, usuarioActual]);
 
   // Escuchar eventos de la sesión activa en tiempo real (con soporte offline)
   useEffect(() => {
@@ -221,6 +246,22 @@ export default function App() {
     }
   };
 
+  // Actualización optimista inmediata del ciclo semafórico para respuesta a 0ms en pantalla
+  const handleActualizarSemaforoOptimista = (inicioMs: number) => {
+    setSesionActiva((prev) => (prev ? {
+      ...prev,
+      inicioCicloSemaforo: inicioMs,
+      ultimaResincronizacionSemaforo: inicioMs,
+      sincronizadoPor: usuarioActual
+    } : null));
+    setSesiones((prev) => prev.map((s) => (s.id === sesionActiva?.id ? {
+      ...s,
+      inicioCicloSemaforo: inicioMs,
+      ultimaResincronizacionSemaforo: inicioMs,
+      sincronizadoPor: usuarioActual
+    } : s)));
+  };
+
   const handleCerrarSesionAuth = async () => {
     try {
       await signOut(auth);
@@ -228,6 +269,8 @@ export default function App() {
       // Ignorar
     }
     setUsuarioActual(null);
+    setSesiones([]);
+    setSesionActiva(null);
     setModalAuthAbierto(true);
   };
 
@@ -607,6 +650,7 @@ export default function App() {
                 <SemaforoCronometro
                   sesion={sesionActiva}
                   usuario={usuarioActual || 'aforador@aforo.local'}
+                  onSincronizarLocal={handleActualizarSemaforoOptimista}
                 />
 
                 {/* GRILLA DE BLOQUES INDEPENDIENTES: SOLO LOS ASIGNADOS A ESTE USUARIO */}
