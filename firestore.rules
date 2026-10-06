@@ -1,0 +1,97 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Función: verifica si el usuario está autenticado mediante Firebase Auth
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Función: Lista blanca de los 5 correos institucionales del equipo de aforo
+    function esDelEquipo() {
+      return request.auth != null && request.auth.token.email in [
+        "ijesusmartinez@uniguajira.edu.co",
+        "llouissierra@uniguajira.edu.co",
+        "jenriqueiguaran@uniguajira.edu.co",
+        "ljangulo@uniguajira.edu.co",
+        "conoriozarate@uniguajira.edu.co"
+      ];
+    }
+
+    // Función: verifica si el usuario es administrador
+    function isAdmin() {
+      return isAuthenticated() && (
+        request.auth.token.admin == true ||
+        request.auth.token.email.matches('.*admin.*') ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    // Reglas para la colección 'sesiones' (compartidas por el equipo de aforo)
+    match /sesiones/{sesionId} {
+      // Cualquier usuario del equipo puede crear una sesión
+      allow create: if esDelEquipo() && request.resource.data.usuario == request.auth.token.email;
+
+      // Cualquier integrante del equipo puede actualizarla (para unirse, asignar roles o cerrarla)
+      allow update: if esDelEquipo();
+
+      // Solo el creador o un admin puede eliminar la sesión
+      allow delete: if esDelEquipo() && (
+        resource.data.usuario == request.auth.token.email || isAdmin()
+      );
+
+      // Todos los integrantes del equipo pueden ver las sesiones activas e históricas
+      allow read: if esDelEquipo();
+    }
+
+    // Reglas para la colección 'eventos' (FIFO, salidas de cola, movimientos, peatones y CRUD)
+    match /eventos/{eventoId} {
+      // El aforador del equipo crea eventos asignados a su correo
+      allow create: if esDelEquipo() && request.resource.data.usuario == request.auth.token.email;
+
+      // Todos los integrantes del equipo pueden leer los eventos colaborativos de la sesión
+      allow read: if esDelEquipo();
+
+      // Edición permitida al dueño del evento o a un admin
+      allow update: if esDelEquipo() && (
+        (resource.data.usuario == request.auth.token.email && request.resource.data.usuario == request.auth.token.email) ||
+        isAdmin()
+      );
+
+      // Eliminación permitida exclusivamente al dueño o a un admin
+      allow delete: if esDelEquipo() && (
+        resource.data.usuario == request.auth.token.email || isAdmin()
+      );
+    }
+
+    // Reglas para la colección 'esperas' (muestras de tiempo de espera)
+    match /esperas/{esperaId} {
+      allow create, read: if esDelEquipo();
+      allow update, delete: if esDelEquipo() && (
+        resource.data.usuario == request.auth.token.email || isAdmin()
+      );
+    }
+
+    // Reglas para la colección 'ciclosSemaforo' (tiempos de verde, amarillo, rojo)
+    match /ciclosSemaforo/{cicloId} {
+      allow create, read: if esDelEquipo();
+      allow update, delete: if esDelEquipo() && (
+        resource.data.usuario == request.auth.token.email || isAdmin()
+      );
+    }
+
+    // Reglas para la colección 'observaciones' (bitácora de notas en campo)
+    match /observaciones/{obsId} {
+      allow create, read: if esDelEquipo();
+      allow update, delete: if esDelEquipo() && (
+        resource.data.usuario == request.auth.token.email || isAdmin()
+      );
+    }
+
+    // Colección de administradores (solo lectura para usuarios del equipo)
+    match /admins/{uid} {
+      allow read: if esDelEquipo();
+      allow write: if false; // Gestionado exclusivamente por consola de Firebase
+    }
+  }
+}
