@@ -140,7 +140,7 @@ export default function App() {
 
   const sesionIdActiva = sesionActiva?.id;
 
-  // Escuchar la sesión activa directamente en tiempo real para cambios inmediatos (semáforo, asignaciones)
+  // Escuchar la sesión activa directamente en tiempo real para cambios inmediatos (semáforo, asignaciones, cierre)
   useEffect(() => {
     if (!sesionIdActiva || !usuarioActual) return;
 
@@ -148,9 +148,19 @@ export default function App() {
       const unsub = onSnapshot(doc(db, 'sesiones', sesionIdActiva), (docSnap) => {
         if (docSnap.exists()) {
           const data = { id: docSnap.id, ...(docSnap.data() as Omit<SesionConteo, 'id'>) };
-          if (!data.enPapelera && (data.activa || data.estado === 'abierta')) {
+          if (data.enPapelera || (!data.activa && data.estado === 'cerrada')) {
+            // La sesión fue cerrada o enviada a papelera: limpiar activo inmediatamente sin congelar UI
+            localStorage.removeItem('sesion_activa_id');
+            setSesionActiva(null);
+            setSesiones((prev) =>
+              prev.map((s) => (s.id === data.id ? { ...s, ...data } : s))
+            );
+          } else {
             setSesionActiva((prev) => (prev ? { ...prev, ...data } : data));
           }
+        } else {
+          localStorage.removeItem('sesion_activa_id');
+          setSesionActiva(null);
         }
       }, (err) => {
         console.warn('Error en listener directo de sesionActiva:', err);
@@ -279,9 +289,15 @@ export default function App() {
     setModalFinalizarAbierto(true);
   };
 
-  const handleFinalizarSesionConfirmada = () => {
+  const handleFinalizarSesionConfirmada = (idCerrada?: string) => {
+    const id = idCerrada || sesionActiva?.id;
     localStorage.removeItem('sesion_activa_id');
     setSesionActiva(null);
+    if (id) {
+      setSesiones((prev) =>
+        prev.map((s) => (s.id === id ? { ...s, activa: false, estado: 'cerrada' } : s))
+      );
+    }
     setColasMemoria({
       moto: [],
       carro: [],
@@ -298,6 +314,17 @@ export default function App() {
     });
     setEventos([]);
     setVistaActiva('conteo');
+  };
+
+  const handleEliminarSesionLocal = (id: string) => {
+    setSesiones((prev) =>
+      prev.map((s) => (s.id === id ? { ...s, enPapelera: true } : s))
+    );
+    if (sesionActiva?.id === id) {
+      localStorage.removeItem('sesion_activa_id');
+      setSesionActiva(null);
+      setEventos([]);
+    }
   };
 
   const handleExportarXLSX = () => {
@@ -738,11 +765,15 @@ export default function App() {
             onSeleccionarSesion={(s) => {
               if (s.activa || s.estado === 'abierta') {
                 localStorage.setItem('sesion_activa_id', s.id);
+                setSesionActiva(s);
+                setVistaActiva('conteo');
+              } else {
+                setSesionActiva(s);
+                setVistaActiva('eventos');
               }
-              setSesionActiva(s);
-              setVistaActiva('conteo');
             }}
             onCerrarSesionActiva={handleCerrarSesionActiva}
+            onEliminarSesionLocal={handleEliminarSesionLocal}
           />
         )}
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { X, Check, StopCircle } from 'lucide-react';
 import type { SesionConteo } from '../types/conteo';
 import { db, doc, updateDoc } from '../lib/firebase';
@@ -16,27 +16,23 @@ export const FinalizarSesionModal: React.FC<FinalizarSesionModalProps> = ({
   onCerrar,
   onSesionFinalizada
 }) => {
-  const [guardando, setGuardando] = useState(false);
-
   if (!abierto || !sesion) return null;
 
   const handleConfirmar = async () => {
-    setGuardando(true);
+    const sesionId = sesion.id;
+    // 1. Finalización optimista inmediata en local (0 ms de espera)
+    onSesionFinalizada();
+    onCerrar();
+
+    // 2. Persistir en Firestore en segundo plano
     try {
-      await updateDoc(doc(db, 'sesiones', sesion.id), {
+      await updateDoc(doc(db, 'sesiones', sesionId), {
         activa: false,
         estado: 'cerrada',
         fechaCierre: new Date().toISOString()
       });
-      onSesionFinalizada();
-      onCerrar();
     } catch (err) {
-      console.error('Error al cerrar sesión:', err);
-      // Fallback si offline
-      onSesionFinalizada();
-      onCerrar();
-    } finally {
-      setGuardando(false);
+      console.error('Error al cerrar sesión en Firestore:', err);
     }
   };
 
@@ -45,7 +41,6 @@ export const FinalizarSesionModal: React.FC<FinalizarSesionModalProps> = ({
       <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md p-6 shadow-2xl relative text-center">
         <button
           onClick={onCerrar}
-          disabled={guardando}
           className="absolute top-4 right-4 text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition"
         >
           <X className="w-5 h-5" />
@@ -78,7 +73,6 @@ export const FinalizarSesionModal: React.FC<FinalizarSesionModalProps> = ({
           <button
             type="button"
             onClick={onCerrar}
-            disabled={guardando}
             className="touch-btn flex-1 py-3 px-4 rounded-xl font-bold text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition"
           >
             Cancelar
@@ -86,11 +80,10 @@ export const FinalizarSesionModal: React.FC<FinalizarSesionModalProps> = ({
           <button
             type="button"
             onClick={handleConfirmar}
-            disabled={guardando}
-            className="touch-btn flex-1 py-3 px-4 rounded-xl font-bold text-xs bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-600/30 flex items-center justify-center gap-1.5 transition disabled:opacity-50"
+            className="touch-btn flex-1 py-3 px-4 rounded-xl font-bold text-xs bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-600/30 flex items-center justify-center gap-1.5 transition cursor-pointer"
           >
             <Check className="w-4 h-4" />
-            <span>{guardando ? 'Finalizando...' : 'Sí, finalizar sesión'}</span>
+            <span>Sí, finalizar sesión</span>
           </button>
         </div>
       </div>
