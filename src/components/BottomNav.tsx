@@ -80,7 +80,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
 
   return (
     <nav
-      className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-slate-900/95 backdrop-blur-md border-t border-slate-800"
+      className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-slate-900/95 backdrop-blur-md border-t border-slate-800 shadow-[0_-4px_20px_rgba(0,0,0,0.5)]"
       style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
       aria-label="Navegación principal"
     >
@@ -89,13 +89,13 @@ export const BottomNav: React.FC<BottomNavProps> = ({
         {leftTabs.map(renderTab)}
 
         {/* FAB central — Nueva Sesión */}
-        <div className="flex flex-col items-center justify-center flex-shrink-0 px-2">
+        <div className="flex flex-col items-center justify-center flex-shrink-0 px-1 sm:px-2">
           <button
             onClick={onAbrirNuevaSesion}
-            className="touch-btn flex flex-col items-center justify-center w-14 h-14 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-900/40 transition-all active:scale-90"
+            className="touch-btn flex flex-col items-center justify-center w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-900/40 transition-all active:scale-90"
             aria-label="Nueva sesión de conteo"
           >
-            <PlusCircle className="w-6 h-6" />
+            <PlusCircle className="w-5 h-5 sm:w-6 sm:h-6" />
             <span className="text-[9px] font-bold mt-0.5 leading-none">Nueva</span>
           </button>
         </div>

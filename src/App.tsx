@@ -411,7 +411,7 @@ export default function App() {
       />
 
       {/* Contenido principal según la pestaña activa */}
-      <main className="flex-1 pb-safe pb-24 md:pb-safe">
+      <main className="flex-1 pb-nav-bottom">
         {vistaActiva === 'conteo' && (
           <div className="max-w-7xl mx-auto px-3 sm:px-6 py-4 space-y-4">
             {/* Si no hay sesión activa creada */}
@@ -749,6 +749,8 @@ export default function App() {
               sesion={sesionActiva}
               usuarioActual={usuarioActual || 'aforador@aforo.local'}
               eventos={eventos}
+              onExportarXLSX={handleExportarXLSX}
+              onExportarCSV={handleExportarCSV}
             />
           ) : (
             <div className="p-8 text-center text-slate-500">

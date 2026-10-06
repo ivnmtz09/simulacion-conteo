@@ -9,7 +9,9 @@ import {
   CheckCircle2,
   TriangleAlert,
   X,
-  Save
+  Save,
+  FileSpreadsheet,
+  Download
 } from 'lucide-react';
 import type {
   EventoConteo,
@@ -26,12 +28,16 @@ interface EventosTablaCRUDProps {
   usuarioActual: string;
   eventos: EventoConteo[];
   onActualizarEventosLocalmente?: (eventos: EventoConteo[]) => void;
+  onExportarXLSX?: () => void;
+  onExportarCSV?: () => void;
 }
 
 export const EventosTablaCRUD: React.FC<EventosTablaCRUDProps> = ({
   sesion,
   usuarioActual,
-  eventos
+  eventos,
+  onExportarXLSX,
+  onExportarCSV
 }) => {
   const [filtroTipo, setFiltroTipo] = useState<string>('todos');
   const [busqueda, setBusqueda] = useState('');
@@ -271,13 +277,35 @@ export const EventosTablaCRUD: React.FC<EventosTablaCRUDProps> = ({
           </p>
         </div>
 
-        <button
-          onClick={abrirCreacionManual}
-          className="touch-btn w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-blue-600 hover:bg-blue-500 text-white shadow-md shadow-blue-500/20 transition"
-        >
-          <CirclePlus className="w-5 h-5 shrink-0" />
-          <span>+ Nuevo Evento Manual</span>
-        </button>
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          {onExportarXLSX && (
+            <button
+              onClick={onExportarXLSX}
+              title="Exportar reporte XLSX"
+              className="touch-btn flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-slate-700 transition"
+            >
+              <FileSpreadsheet className="w-4 h-4" />
+              <span>XLSX</span>
+            </button>
+          )}
+          {onExportarCSV && (
+            <button
+              onClick={onExportarCSV}
+              title="Exportar CSV crudo"
+              className="touch-btn flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-blue-400 border border-slate-700 transition"
+            >
+              <Download className="w-4 h-4" />
+              <span>CSV</span>
+            </button>
+          )}
+          <button
+            onClick={abrirCreacionManual}
+            className="touch-btn flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold bg-blue-600 hover:bg-blue-500 text-white shadow-md shadow-blue-500/20 transition whitespace-nowrap"
+          >
+            <CirclePlus className="w-4 h-4 shrink-0" />
+            <span>+ Manual</span>
+          </button>
+        </div>
       </div>
 
       {/* Filtros rápidos */}

@@ -52,3 +52,13 @@ html, body {
 .pb-safe {
   padding-bottom: var(--sab);
 }
+
+/* Espaciado inferior para vistas con BottomNav en móvil (< md) */
+.pb-nav-bottom {
+  padding-bottom: calc(5.5rem + var(--sab));
+}
+@media (min-width: 768px) {
+  .pb-nav-bottom {
+    padding-bottom: var(--sab);
+  }
+}
