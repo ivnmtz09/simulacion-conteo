@@ -78,8 +78,16 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
   const countAmarillo = salidas.filter((e) => e.faseCruce === 'amarillo').length;
   const countRojo = salidas.filter((e) => e.faseCruce === 'rojo' || (!e.faseCruce && e.categoriaSalida === 'se_vuela')).length;
 
+  // Eventos de parqueo en carril (vehículos que entraron a cola pero se estacionaron en la vía)
+  const parqueosIniciados = eventosDelTipo.filter((e) => e.tipoRegistro === 'parqueo_inicia' && !e.enPapelera);
+  const parqueosTerminados = eventosDelTipo.filter((e) => e.tipoRegistro === 'parqueo_termina' && !e.enPapelera);
+  const parqueadosEnCola = Math.max(0, parqueosIniciados.length - parqueosTerminados.length);
+
   // Contador "En cola ahora: N" (sincronizado reactivamente desde Firestore para todo el equipo)
   const enCola = Math.max(0, entradasCola.length - llegadasServidor.length);
+
+  // Vehículos en cola disponibles para avanzar a servidor (excluye los que están parqueados en carril)
+  const enColaDisponibles = Math.max(0, enCola - parqueadosEnCola);
 
   // Contador "En servidor ahora: M" (sincronizado reactivamente desde Firestore para todo el equipo)
   const enServidor = Math.max(0, llegadasServidor.length - salidasCola.length);
@@ -151,16 +159,56 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
     await onRegistrarEvento(nuevoEvento);
   };
 
-  // 2. Llega al servidor (semáforo)
+  // Marcar vehículo como parqueado en carril (permanece en cola, no puede pasar al semáforo hasta desmarcar)
+  const handleMarcarParqueado = async () => {
+    if (enColaDisponibles <= 0) return;
+    vibrar(35);
+    const ahoraMs = Date.now();
+    const nuevoEvento: Omit<EventoConteo, 'id'> = {
+      sesionId,
+      usuario,
+      tipoVehiculo: tipo,
+      tipoRegistro: 'parqueo_inicia',
+      timestampCreacion: ahoraMs,
+      esParqueado: true
+    };
+    await onRegistrarEvento(nuevoEvento);
+  };
+
+  // Desmarcar vehículo parqueado (reanuda marcha y queda habilitado nuevamente para avanzar al semáforo)
+  const handleDesmarcarParqueado = async () => {
+    if (parqueadosEnCola <= 0) return;
+    vibrar(35);
+    const ahoraMs = Date.now();
+    const nuevoEvento: Omit<EventoConteo, 'id'> = {
+      sesionId,
+      usuario,
+      tipoVehiculo: tipo,
+      tipoRegistro: 'parqueo_termina',
+      timestampCreacion: ahoraMs,
+      esParqueado: false
+    };
+    await onRegistrarEvento(nuevoEvento);
+  };
+
+  // 2. Llega al servidor (semáforo) — Estrictamente solo si hay vehículos en cola NO parqueados
   const handleLlegaServidor = async () => {
-    if (enCola <= 0) return;
+    if (enColaDisponibles <= 0) return;
 
     vibrar(35);
     const ahoraMs = Date.now();
     const ahoraIso = new Date(ahoraMs).toISOString();
 
-    // Toma el vehículo más antiguo en espera en cola (FIFO)
-    const entradaCorresp = entradasCola[llegadasServidor.length];
+    // Obtener las entradas de cola que aún no han pasado al servidor
+    const horasEntradaConsumidas = new Set(
+      llegadasServidor.map((s) => s.horaEntradaCola).filter(Boolean)
+    );
+    const entradasPendientes = entradasCola.filter(
+      (e) => !horasEntradaConsumidas.has(e.horaEntradaCola || new Date(e.timestampCreacion).toISOString())
+    );
+
+    // Los primeros 'parqueadosEnCola' están congelados en la cola; toma el primer vehículo disponible
+    const entradaCorresp = entradasPendientes[parqueadosEnCola] || entradasPendientes[0] || entradasCola[llegadasServidor.length];
     const horaEntradaColaIso = entradaCorresp?.horaEntradaCola || new Date(entradaCorresp?.timestampCreacion || ahoraMs).toISOString();
     const horaEntradaColaMs = new Date(horaEntradaColaIso).getTime();
 
@@ -184,7 +232,7 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
     await onRegistrarEvento(nuevoEvento);
   };
 
-  // 3. Cruza vehículo — Estrictamente solo si M >= 1 (Cálculo automático de fase semafórica de 93s)
+  // 3. Cruza vehículo — Estrictamente solo si M >= 1 (Cálculo automático de fase semafórica de 96s)
   const handleSalidaCola = async () => {
     if (enServidor <= 0) return;
 
@@ -209,7 +257,7 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
     const tiempoEnServidorSeg = Math.max(0, Math.round((ahoraMs - tLlegada) / 1000));
     const tiempoTotalSeg = Math.max(0, Math.round((ahoraMs - tEntrada) / 1000));
 
-    // Determinación automática de la fase del semáforo según el ciclo de 93s
+    // Determinación automática de la fase del semáforo según el ciclo de 96s
     const estadoSemaforo = calcularEstadoSemaforo(ahoraMs, inicioCicloSemaforo);
     const categoria = mapearFaseACategoria(estadoSemaforo.fase);
 
@@ -310,9 +358,19 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
                   : 'bg-slate-800/80 border-slate-700 text-slate-400'
               }`}
             >
-              <Users className="w-3.5 h-3.5 text-amber-400" />
+              <Users className="w-3.5 h-3.5 text-amber-400 shrink-0" />
               <div className="flex flex-col text-left leading-none">
-                <span className="text-[9px] uppercase font-bold text-slate-400">En cola</span>
+                <div className="flex items-center gap-1">
+                  <span className="text-[9px] uppercase font-bold text-slate-400">En cola</span>
+                  {parqueadosEnCola > 0 && (
+                    <span
+                      className="text-[9px] font-black px-1 rounded bg-amber-500/30 text-amber-200 border border-amber-500/40"
+                      title={`${parqueadosEnCola} vehículo(s) parqueado(s) en carril`}
+                    >
+                      🅿️{parqueadosEnCola}
+                    </span>
+                  )}
+                </div>
                 <span className="text-base font-black text-white mt-0.5">{enCola}</span>
               </div>
             </div>
@@ -369,13 +427,13 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
               </span>
             </button>
 
-            {/* BOTÓN 2: Llega al servidor (semáforo) */}
+            {/* BOTÓN 2: Llega al servidor (semáforo) — Deshabilitado si los vehículos en cola están parqueados */}
             <button
               type="button"
-              disabled={enCola === 0}
+              disabled={enColaDisponibles === 0}
               onClick={handleLlegaServidor}
               className={`touch-btn py-3 px-2.5 rounded-2xl border font-bold text-xs sm:text-sm tracking-wide uppercase transition-all flex flex-col items-center justify-center gap-1 shadow-md ${
-                enCola > 0
+                enColaDisponibles > 0
                   ? animandoServidor
                     ? 'bg-cyan-400 text-slate-950 scale-95 border-cyan-400'
                     : 'bg-gradient-to-br from-cyan-600 to-cyan-700 hover:from-cyan-500 hover:to-cyan-600 text-white shadow-cyan-600/20 active:scale-95 border-cyan-500/40 cursor-pointer'
@@ -387,12 +445,61 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
                 <span>2. Al semáforo</span>
               </div>
               <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-md ${
-                enCola > 0 ? 'bg-black/20 text-cyan-200' : 'text-slate-600'
+                enColaDisponibles > 0 ? 'bg-black/20 text-cyan-200' : 'text-slate-600'
               }`}>
-                Pasa al frente
+                {enCola > 0 && enColaDisponibles === 0 ? '🅿️ Parqueado' : 'Pasa al frente'}
               </span>
             </button>
           </div>
+
+          {/* CONTROL Y ESTADO DE VEHÍCULO PARQUEADO EN CARRIL */}
+          {parqueadosEnCola > 0 ? (
+            <div className="p-2.5 rounded-2xl bg-amber-500/15 border border-amber-500/40 text-amber-200 text-xs flex items-center justify-between gap-2 shadow-sm animate-in fade-in">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-base select-none shrink-0">🅿️</span>
+                <div className="leading-tight truncate">
+                  <span className="font-black text-amber-300">
+                    {parqueadosEnCola} {parqueadosEnCola === 1 ? 'parqueado en carril' : 'parqueados en carril'}
+                  </span>
+                  <p className="text-[10px] text-amber-400/80 truncate">
+                    Permanece en cola · Bloqueado para semáforo
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                {enColaDisponibles > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleMarcarParqueado}
+                    title="Marcar otro vehículo parqueado en carril"
+                    className="touch-btn text-[10px] font-bold px-2 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/40 cursor-pointer"
+                  >
+                    +1
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={handleDesmarcarParqueado}
+                  title="Reanuda la marcha del vehículo y se habilita para avanzar al semáforo"
+                  className="touch-btn text-[11px] font-black px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-sm transition active:scale-95 cursor-pointer"
+                >
+                  Desmarcar
+                </button>
+              </div>
+            </div>
+          ) : (
+            enCola > 0 && (
+              <button
+                type="button"
+                onClick={handleMarcarParqueado}
+                className="touch-btn w-full py-1.5 px-3 rounded-xl border border-slate-800 hover:border-amber-500/40 bg-slate-950/60 hover:bg-amber-500/10 text-slate-400 hover:text-amber-300 text-[11px] font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer"
+                title="Marcar que un vehículo que entró a la cola se estacionó/parqueó en el carril"
+              >
+                <span>🅿️</span>
+                <span>¿Vehículo se parqueó en carril?</span>
+              </button>
+            )
+          )}
 
           {/* BOTÓN 3: UN SOLO BOTÓN "3. CRUZA" — DESHABILITADO SI M = 0 */}
           <div className="space-y-2">
@@ -453,10 +560,17 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
                   Hay {enServidor} vehículo(s) en semáforo (Paso 3 habilitado).
                 </span>
               ) : enCola > 0 ? (
-                <span className="text-amber-400 flex items-center justify-center gap-1">
-                  <AlertCircle className="w-3.5 h-3.5 inline shrink-0" />
-                  <span>Hay {enCola} en cola. Pásalos a &quot;2. Al semáforo&quot; para habilitar el cruce.</span>
-                </span>
+                enColaDisponibles === 0 ? (
+                  <span className="text-amber-400 flex items-center justify-center gap-1 font-semibold">
+                    <AlertCircle className="w-3.5 h-3.5 inline shrink-0" />
+                    <span>Vehículo(s) en cola parqueado(s). Desmarca para habilitar el paso a semáforo.</span>
+                  </span>
+                ) : (
+                  <span className="text-amber-400 flex items-center justify-center gap-1">
+                    <AlertCircle className="w-3.5 h-3.5 inline shrink-0" />
+                    <span>Hay {enColaDisponibles} disponible(s) en cola. Pásalos a &quot;2. Al semáforo&quot; para habilitar el cruce.</span>
+                  </span>
+                )
               ) : (
                 <span className="text-slate-500">
                   Semáforo vacío (M = 0). Para flujo libre sin detención, usa &quot;Cruce directo&quot;.

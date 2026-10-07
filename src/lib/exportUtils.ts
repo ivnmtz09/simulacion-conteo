@@ -56,6 +56,10 @@ function etiquetaTipoRegistro(tr?: string): string {
       return 'Giro / Movimiento';
     case 'peaton':
       return 'Cruce Peatonal';
+    case 'parqueo_inicia':
+      return 'Inicio de Parqueo en Carril';
+    case 'parqueo_termina':
+      return 'Fin de Parqueo (Reanudación)';
     default:
       return tr || '';
   }
@@ -82,7 +86,7 @@ export function generarFilasDetalle(sesion: SesionConteo, eventos: EventoConteo[
       'Tipo de Vehículo': infoVehiculo?.nombre || ev.tipoVehiculo,
       'Tipo de Registro': etiquetaTipoRegistro(ev.tipoRegistro),
       'Fase Semáforo': ev.faseCruce ? ev.faseCruce.toUpperCase() : (ev.categoriaSalida === 'respeta' ? 'VERDE' : ev.categoriaSalida === 'se_vuela' ? 'ROJO' : 'N/A'),
-      'Segundo en Ciclo (0-92s)': ev.segundoEnCiclo !== null && ev.segundoEnCiclo !== undefined ? ev.segundoEnCiclo : 'N/A',
+      'Segundo en Ciclo (0-95s)': ev.segundoEnCiclo !== null && ev.segundoEnCiclo !== undefined ? ev.segundoEnCiclo : 'N/A',
       'Número de Ciclo': ev.numeroCiclo !== null && ev.numeroCiclo !== undefined ? ev.numeroCiclo : 'N/A',
       'Categoría Salida': etiquetaCategoria(ev.categoriaSalida),
       'Movimiento / Giro': ev.movimiento ? ev.movimiento.toUpperCase() : 'N/A',
@@ -93,6 +97,7 @@ export function generarFilasDetalle(sesion: SesionConteo, eventos: EventoConteo[
       'Tiempo en Servidor (s)': ev.tiempoEnServidorSeg !== null && ev.tiempoEnServidorSeg !== undefined ? ev.tiempoEnServidorSeg : 'N/A',
       'Tiempo Total (s)': tiempoTotal,
       'Flujo Libre (Sin cola)': ev.esFlujoLibre ? 'SÍ' : 'NO',
+      'Parqueado en Carril': ev.esParqueado ? 'SÍ' : 'NO',
       'Registro Manual': ev.esManual ? 'SÍ' : 'NO'
     };
   });

@@ -1,9 +1,10 @@
 import type { FaseSemaforo, CategoriaSalidaVehiculo } from '../types/conteo';
 
-export const DURACION_CICLO_SEG = 93;
+export const DURACION_CICLO_SEG = 96;
 export const DURACION_VERDE_SEG = 18;
 export const DURACION_AMARILLO_SEG = 3;
 export const DURACION_ROJO_SEG = 72;
+export const DURACION_AMARILLO_FINAL_SEG = 3;
 
 export interface EstadoSemaforoCalculado {
   sincronizado: boolean;
@@ -44,12 +45,13 @@ export function normalizarTimestampMs(valor: unknown): number | null {
 
 /**
  * Calcula determinísticamente la fase y estado actual del semáforo a partir
- * de un ciclo continuo de 93 segundos (18s Verde, 3s Amarillo, 72s Rojo).
+ * de un ciclo continuo de 96 segundos (18s Verde, 3s Amarillo, 72s Rojo, 3s Amarillo pre-verde).
  * 
  * Intervalos:
  * [0, 18)   -> Verde (18 segundos)
- * [18, 21)  -> Amarillo (3 segundos)
+ * [18, 21)  -> Amarillo post-verde (3 segundos)
  * [21, 93)  -> Rojo (72 segundos)
+ * [93, 96)  -> Amarillo pre-verde (3 segundos)
  */
 export function calcularEstadoSemaforo(
   timestampMs: number,
@@ -80,17 +82,25 @@ export function calcularEstadoSemaforo(
   let fase: FaseSemaforo;
   let segundosRestantesFase: number;
 
-  if (segundoEnCicloExacto < DURACION_VERDE_SEG) {
+  const limVerde = DURACION_VERDE_SEG; // 18s
+  const limAmarillo1 = limVerde + DURACION_AMARILLO_SEG; // 21s
+  const limRojo = limAmarillo1 + DURACION_ROJO_SEG; // 93s
+
+  if (segundoEnCicloExacto < limVerde) {
     // 0 a 18s -> Verde
     fase = 'verde';
-    segundosRestantesFase = Math.max(1, Math.ceil(DURACION_VERDE_SEG - segundoEnCicloExacto));
-  } else if (segundoEnCicloExacto < DURACION_VERDE_SEG + DURACION_AMARILLO_SEG) {
-    // 18s a 21s -> Amarillo
+    segundosRestantesFase = Math.max(1, Math.ceil(limVerde - segundoEnCicloExacto));
+  } else if (segundoEnCicloExacto < limAmarillo1) {
+    // 18s a 21s -> Amarillo (post-verde)
     fase = 'amarillo';
-    segundosRestantesFase = Math.max(1, Math.ceil((DURACION_VERDE_SEG + DURACION_AMARILLO_SEG) - segundoEnCicloExacto));
-  } else {
+    segundosRestantesFase = Math.max(1, Math.ceil(limAmarillo1 - segundoEnCicloExacto));
+  } else if (segundoEnCicloExacto < limRojo) {
     // 21s a 93s -> Rojo
     fase = 'rojo';
+    segundosRestantesFase = Math.max(1, Math.ceil(limRojo - segundoEnCicloExacto));
+  } else {
+    // 93s a 96s -> Amarillo (pre-verde de cierre de ciclo)
+    fase = 'amarillo';
     segundosRestantesFase = Math.max(1, Math.ceil(DURACION_CICLO_SEG - segundoEnCicloExacto));
   }
 

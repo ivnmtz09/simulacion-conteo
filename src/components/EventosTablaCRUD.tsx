@@ -445,6 +445,14 @@ export const EventosTablaCRUD: React.FC<EventosTablaCRUDProps> = ({
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-blue-500/10 text-blue-300 border border-blue-500/20 font-semibold">
                             Giro: {ev.movimiento?.toUpperCase()}
                           </span>
+                        ) : ev.tipoRegistro === 'parqueo_inicia' ? (
+                          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-amber-500/20 text-amber-200 border border-amber-500/40 font-bold">
+                            <span>🅿️</span> Inicia parqueo en carril
+                          </span>
+                        ) : ev.tipoRegistro === 'parqueo_termina' ? (
+                          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold">
+                            <span>✅</span> Fin parqueo (Reanuda)
+                          </span>
                         ) : (
                           // Peatón
                           ev.categoriaSalida === 'cebra' ? (
@@ -606,7 +614,7 @@ export const EventosTablaCRUD: React.FC<EventosTablaCRUDProps> = ({
               {formTipoVehiculo !== 'peaton' && formTipoRegistro === 'salida_cola' && (
                 <div>
                   <label className="block font-semibold text-slate-300 mb-1">
-                    Fase Semafórica al Cruce (Ciclo 93s)
+                    Fase Semafórica al Cruce (Ciclo 96s)
                   </label>
                   <select
                     value={formFaseCruce}
@@ -618,7 +626,7 @@ export const EventosTablaCRUD: React.FC<EventosTablaCRUDProps> = ({
                     className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white font-medium focus:outline-none focus:border-blue-500"
                   >
                     <option value="verde">🟢 Verde (0-18s) - Respeta</option>
-                    <option value="amarillo">🟡 Amarillo (18-21s) - Precaución</option>
+                    <option value="amarillo">🟡 Amarillo (18-21s / 93-96s) - Precaución</option>
                     <option value="rojo">🔴 Rojo (21-93s) - Se vuela / Infracción</option>
                   </select>
                 </div>

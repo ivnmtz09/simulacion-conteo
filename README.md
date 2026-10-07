@@ -10,21 +10,23 @@ Esta plataforma permite a brigadas de aforadores registrar de forma colaborativa
 
 A diferencia de los contadores tradicionales de pulso, la aplicación implementa:
 1. Un **modelo formal de Teoría de Colas (Fila + Servidor)** que mide con exactitud de segundos el tiempo que un vehículo pasa esperando en la fila antes de alcanzar el semáforo y el tiempo que tarda en el semáforo antes de cruzar.
-2. Un **modelo de Ciclo Semafórico Continuo de 93 segundos** que determina de forma matemática y automática la fase de cruce (🟢 Verde, 🟡 Amarillo, 🔴 Rojo) de cada vehículo, liberando al aforador de la carga subjetiva de clasificar manualmente el estado de la luz.
+2. Un **modelo de Ciclo Semafórico Continuo de 96 segundos** (18s Verde, 3s Amarillo, 72s Rojo, 3s Amarillo pre-verde) que determina de forma matemática y automática la fase de cruce (🟢 Verde, 🟡 Amarillo, 🔴 Rojo) de cada vehículo, liberando al aforador de la carga subjetiva de clasificar manualmente el estado de la luz.
+3. Soporte para **Vehículos Parqueados en Carril** que permanecen retenidos en cola sin poder avanzar al semáforo hasta ser desmarcados.
 
 ---
 
-## 🚦 Modelo de Ciclo Semafórico Continuo (93 Segundos)
+## 🚦 Modelo de Ciclo Semafórico Continuo (96 Segundos)
 
 El ciclo de la intersección corre de forma continua y matemática a partir de una única sincronización inicial en campo:
 
-$$\text{Duración total del ciclo} = 93 \text{ segundos}$$
+$$\text{Duración total del ciclo} = 96 \text{ segundos}$$
 
 | Fase | Duración | Intervalo dentro del ciclo | Comportamiento |
 | :--- | :---: | :---: | :--- |
 | 🟢 **Verde** | 18 s | $0 \le t < 18 \text{ s}$ | Cruce habilitado (Respeta) |
-| 🟡 **Amarillo** | 3 s | $18 \le t < 21 \text{ s}$ | Fase de cambio / despeje |
+| 🟡 **Amarillo (post-verde)** | 3 s | $18 \le t < 21 \text{ s}$ | Fase de cambio / despeje |
 | 🔴 **Rojo** | 72 s | $21 \le t < 93 \text{ s}$ | Detención obligatoria (Infracción si cruza) |
+| 🟡 **Amarillo (pre-verde)** | 3 s | $93 \le t < 96 \text{ s}$ | Fase preparatoria de inicio de verde |
 
 ### 1. Sincronización Colaborativa en Tiempo Real ($t_0$)
 - Cualquier integrante del equipo presiona **`"🟢 Sincronizar en inicio de VERDE"`** en el instante exacto en que la luz real cambia a verde.
@@ -34,13 +36,14 @@ $$\text{Duración total del ciclo} = 93 \text{ segundos}$$
 ### 2. Cálculo Determinista de la Fase de Cruce
 En el instante exacto en que se registra una salida vehicular ($t$):
 $$\Delta t = t - t_0$$
-$$\text{segundoEnCiclo} = (\Delta t / 1000) \pmod{93}$$
-$$\text{numeroCiclo} = \left\lfloor \frac{\Delta t / 1000}{93} \right\rfloor + 1$$
+$$\text{segundoEnCiclo} = (\Delta t / 1000) \pmod{96}$$
+$$\text{numeroCiclo} = \left\lfloor \frac{\Delta t / 1000}{96} \right\rfloor + 1$$
 
 El sistema asigna automáticamente:
 - Si $0 \le \text{segundoEnCiclo} < 18$ $\to$ `faseCruce = 'verde'`
 - Si $18 \le \text{segundoEnCiclo} < 21$ $\to$ `faseCruce = 'amarillo'`
 - Si $21 \le \text{segundoEnCiclo} < 93$ $\to$ `faseCruce = 'rojo'`
+- Si $93 \le \text{segundoEnCiclo} < 96$ $\to$ `faseCruce = 'amarillo'`
 
 ### 3. Re-sincronización y Calibración en Campo
 - Si la controladora física en calle sufre pequeñas variaciones temporales tras periodos prolongados, el sistema muestra un aviso discreto recomendando verificar la alineación después de 30 minutos.
@@ -68,7 +71,7 @@ El flujo vehicular en cada carril o sentido se modela dividiendo el tiempo total
    - Calcula:
      $$W_s = \text{tiempoEnServidorSeg} = \text{horaSalida} - \text{horaLlegaServidor}$$
      $$W = \text{tiempoTotalSeg} = \text{horaSalida} - \text{horaEntradaCola} = W_q + W_s$$
-   - Evalúa automáticamente `faseCruce` según el ciclo de 93 s.
+   - Evalúa automáticamente `faseCruce` según el ciclo de 96 s.
    - Muestra retroalimentación visual inmediata (badge verde, amarillo o rojo).
 
 ### Cruce Directo en Flujo Libre (Sin Cola)

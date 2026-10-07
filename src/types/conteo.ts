@@ -98,7 +98,9 @@ export type TipoRegistroEvento =
   | 'llega_servidor'
   | 'salida_cola'
   | 'movimiento'
-  | 'peaton';
+  | 'peaton'
+  | 'parqueo_inicia'
+  | 'parqueo_termina';
 
 export interface VehiculoEnServidor {
   horaEntradaCola: number;
@@ -125,10 +127,14 @@ export interface EventoConteo {
   // Giros / movimientos independientes
   movimiento?: MovimientoGiro | null;
 
-  // Ciclo semafórico automático (93s)
+  // Ciclo semafórico automático (96s: 18V / 3A / 72R / 3A)
   faseCruce?: FaseSemaforo | null;
   segundoEnCiclo?: number | null;
   numeroCiclo?: number | null;
+
+  // Estado de vehículo parqueado en carril
+  esParqueado?: boolean;
+  duracionParqueoSeg?: number | null;
 
   timestampCreacion: number;
   esManual?: boolean;
