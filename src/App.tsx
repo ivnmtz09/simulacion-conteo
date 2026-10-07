@@ -32,7 +32,8 @@ import { SplashScreen } from './components/SplashScreen';
 import { NotFoundPage } from './components/NotFoundPage';
 import { VehiculoIcono } from './components/VehiculoIcono';
 import { exportarEventosXLSX, exportarEventosCSV } from './lib/exportUtils';
-import { esCorreoAutorizado } from './config/equipo';
+import { esCorreoAutorizado, esUsuarioAforoUniversitario } from './config/equipo';
+import { DashboardAforoUni } from './components/aforoUni/DashboardAforoUni';
 import { PlusCircle, Activity, StopCircle, Users, MapPin, Clock, Eye } from 'lucide-react';
 
 export default function App() {
@@ -486,6 +487,16 @@ export default function App() {
           setRutaInvalida(false);
           setModalAuthAbierto(true);
         }}
+      />
+    );
+  }
+
+  // Si el usuario autenticado es janiez@uniguajira.edu.co, renderizar su Dashboard de Aforo Universitario exclusivo
+  if (usuarioActual && esUsuarioAforoUniversitario(usuarioActual)) {
+    return (
+      <DashboardAforoUni
+        usuarioActual={usuarioActual}
+        onCerrarSesionAuth={handleCerrarSesionAuth}
       />
     );
   }

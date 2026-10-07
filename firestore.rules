@@ -18,6 +18,11 @@ service cloud.firestore {
       ];
     }
 
+    // Función: verifica si el usuario es el aforador universitario exclusivo
+    function esAforadorUniversitario() {
+      return request.auth != null && request.auth.token.email == "janiez@uniguajira.edu.co";
+    }
+
     // Función: verifica si el usuario es administrador
     function isAdmin() {
       return isAuthenticated() && (
@@ -86,8 +91,17 @@ service cloud.firestore {
 
     // Colección de administradores (solo lectura para usuarios del equipo)
     match /admins/{uid} {
-      allow read: if esDelEquipo();
+      allow read: if esDelEquipo() || esAforadorUniversitario();
       allow write: if false; // Gestionado exclusivamente por consola de Firebase
+    }
+
+    // Reglas para colecciones exclusivas de Aforo Universitario (Bloques Universidad de La Guajira)
+    match /sesionesAforoUni/{sesionId} {
+      allow create, read, update, delete: if esAforadorUniversitario() || isAdmin();
+    }
+
+    match /eventosAforoUni/{eventoId} {
+      allow create, read, update, delete: if esAforadorUniversitario() || isAdmin();
     }
   }
 }
