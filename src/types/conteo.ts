@@ -159,6 +159,7 @@ export interface SesionConteo {
   fechaEliminacion?: string | null;
   fechaCreacion: string;
   fechaCierre?: string | null;
+  fechaReapertura?: string | null;
 }
 
 export interface ResumenEstadisticasVehiculo {

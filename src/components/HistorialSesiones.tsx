@@ -9,7 +9,9 @@ import {
   MapPin,
   Clock,
   Eye,
-  CheckCircle2
+  CheckCircle2,
+  RotateCcw,
+  Settings2
 } from 'lucide-react';
 import type { SesionConteo, EventoConteo } from '../types/conteo';
 import { TIPOS_VEHICULOS } from '../types/conteo';
@@ -25,6 +27,8 @@ interface HistorialSesionesProps {
   onCerrarSesionActiva: () => Promise<void>;
   onEliminarSesionLocal?: (id: string) => void;
   onAbrirUnirse?: (sesion: SesionConteo) => void;
+  onRestaurarSesion?: (sesion: SesionConteo, continuarConteo?: boolean) => void;
+  onEditarSesion?: (sesion: SesionConteo) => void;
 }
 
 export const HistorialSesiones: React.FC<HistorialSesionesProps> = ({
@@ -34,7 +38,9 @@ export const HistorialSesiones: React.FC<HistorialSesionesProps> = ({
   onSeleccionarSesion,
   onCerrarSesionActiva,
   onEliminarSesionLocal,
-  onAbrirUnirse
+  onAbrirUnirse,
+  onRestaurarSesion,
+  onEditarSesion
 }) => {
   const [eliminandoId, setEliminandoId] = useState<string | null>(null);
 
@@ -252,19 +258,52 @@ export const HistorialSesiones: React.FC<HistorialSesionesProps> = ({
                       <span>Retomar / Unirse</span>
                     </button>
                   ) : (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        onSeleccionarSesion(s);
-                      }}
-                      className="touch-btn text-xs font-semibold px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 flex items-center gap-1.5 cursor-pointer"
-                      title="Consultar la bitácora de eventos registrados en esta sesión cerrada"
-                    >
-                      <Eye className="w-3.5 h-3.5 text-blue-400" />
-                      <span>Ver eventos</span>
-                    </button>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          onSeleccionarSesion(s);
+                        }}
+                        className="touch-btn text-xs font-semibold px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 flex items-center gap-1.5 cursor-pointer"
+                        title="Consultar la bitácora de eventos registrados en esta sesión cerrada"
+                      >
+                        <Eye className="w-3.5 h-3.5 text-blue-400" />
+                        <span>Ver eventos</span>
+                      </button>
+
+                      {onRestaurarSesion && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            onRestaurarSesion(s);
+                          }}
+                          className="touch-btn text-xs font-bold px-2.5 py-1.5 rounded-xl bg-amber-500/15 text-amber-300 hover:bg-amber-500/25 border border-amber-500/30 flex items-center gap-1.5 cursor-pointer transition active:scale-95"
+                          title="Restaurar y reactivar esta sesión finalizada para hacer ajustes o continuar el aforo"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5" />
+                          <span>Restaurar</span>
+                        </button>
+                      )}
+
+                      {onEditarSesion && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            onEditarSesion(s);
+                          }}
+                          className="touch-btn p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition cursor-pointer active:scale-95"
+                          title="Ajustar nombre, intersección o categorías de esta sesión"
+                        >
+                          <Settings2 className="w-3.5 h-3.5 text-slate-400" />
+                        </button>
+                      )}
+                    </div>
                   )}
 
                   {/* Descarga XLSX */}

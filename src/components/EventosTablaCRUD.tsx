@@ -15,7 +15,8 @@ import {
   Disc,
   Zap,
   CircleParking,
-  Footprints
+  Footprints,
+  RotateCcw
 } from 'lucide-react';
 import type {
   EventoConteo,
@@ -35,6 +36,7 @@ interface EventosTablaCRUDProps {
   onActualizarEventosLocalmente?: (eventos: EventoConteo[]) => void;
   onExportarXLSX?: () => void;
   onExportarCSV?: () => void;
+  onRestaurarSesion?: (sesion: SesionConteo, continuarConteo?: boolean) => void;
 }
 
 export const EventosTablaCRUD: React.FC<EventosTablaCRUDProps> = ({
@@ -42,7 +44,8 @@ export const EventosTablaCRUD: React.FC<EventosTablaCRUDProps> = ({
   usuarioActual,
   eventos,
   onExportarXLSX,
-  onExportarCSV
+  onExportarCSV,
+  onRestaurarSesion
 }) => {
   const [filtroTipo, setFiltroTipo] = useState<string>('todos');
   const [busqueda, setBusqueda] = useState('');
@@ -266,6 +269,30 @@ export const EventosTablaCRUD: React.FC<EventosTablaCRUDProps> = ({
 
   return (
     <div className="max-w-7xl mx-auto px-3 sm:px-6 py-4 space-y-4">
+      {/* Banner si la sesión se encuentra finalizada */}
+      {(!sesion.activa || sesion.estado === 'cerrada') && (
+        <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-md">
+          <div className="flex items-center gap-2.5 text-xs text-amber-300">
+            <RotateCcw className="w-4 h-4 text-amber-400 shrink-0" />
+            <div>
+              <span className="font-bold">Esta sesión se encuentra finalizada (cerrada).</span>
+              <span className="block text-[11px] text-amber-400/80">
+                Puedes consultar o corregir eventos, o restaurarla para reactivar el conteo en tiempo real.
+              </span>
+            </div>
+          </div>
+          {onRestaurarSesion && (
+            <button
+              onClick={() => onRestaurarSesion(sesion)}
+              className="touch-btn text-xs font-bold px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 flex items-center gap-1.5 shadow-md transition shrink-0 cursor-pointer active:scale-95"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Restaurar Sesión</span>
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Encabezado y barra de herramientas */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>

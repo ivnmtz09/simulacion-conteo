@@ -11,7 +11,8 @@ import {
   query,
   where,
   onSnapshot,
-  addDoc
+  addDoc,
+  updateDoc
 } from './lib/firebase';
 import { Navbar } from './components/Navbar';
 import { BottomNav } from './components/BottomNav';
@@ -19,6 +20,8 @@ import { AuthModal } from './components/AuthModal';
 import { NuevaSesionModal } from './components/NuevaSesionModal';
 import { FinalizarSesionModal } from './components/FinalizarSesionModal';
 import { UnirseSesionModal } from './components/UnirseSesionModal';
+import { RestaurarSesionModal } from './components/RestaurarSesionModal';
+import { EditarSesionModal } from './components/EditarSesionModal';
 import { VehiculoBloqueConteo } from './components/VehiculoBloqueConteo';
 import { PeatonBloqueConteo } from './components/PeatonBloqueConteo';
 import { EventosTablaCRUD } from './components/EventosTablaCRUD';
@@ -71,6 +74,10 @@ export default function App() {
   const [modalFinalizarAbierto, setModalFinalizarAbierto] = useState(false);
   const [modalUnirseAbierto, setModalUnirseAbierto] = useState(false);
   const [sesionParaUnirse, setSesionParaUnirse] = useState<SesionConteo | null>(null);
+  const [modalRestaurarAbierto, setModalRestaurarAbierto] = useState(false);
+  const [sesionParaRestaurar, setSesionParaRestaurar] = useState<SesionConteo | null>(null);
+  const [modalEditarAbierto, setModalEditarAbierto] = useState(false);
+  const [sesionParaEditar, setSesionParaEditar] = useState<SesionConteo | null>(null);
 
   // Escuchar estado de autenticación en Firebase restringido a lista blanca
   useEffect(() => {
@@ -326,6 +333,57 @@ export default function App() {
       localStorage.removeItem('sesion_activa_id');
       setSesionActiva(null);
       setEventos([]);
+    }
+  };
+
+  const handleRestaurarSesion = async (sesion: SesionConteo, continuarConteo = true) => {
+    const ahoraIso = new Date().toISOString();
+    try {
+      await updateDoc(doc(db, 'sesiones', sesion.id), {
+        activa: true,
+        estado: 'abierta',
+        fechaCierre: null,
+        fechaReapertura: ahoraIso
+      });
+    } catch (err) {
+      console.error('Error al restaurar sesión en Firestore:', err);
+    }
+
+    const sesionRestaurada: SesionConteo = {
+      ...sesion,
+      activa: true,
+      estado: 'abierta',
+      fechaCierre: null,
+      fechaReapertura: ahoraIso
+    };
+
+    setSesiones((prev) =>
+      prev.map((s) => (s.id === sesion.id ? sesionRestaurada : s))
+    );
+
+    setSesionActiva(sesionRestaurada);
+    localStorage.setItem('sesion_activa_id', sesion.id);
+
+    if (continuarConteo) {
+      setVistaActiva('conteo');
+    } else {
+      setVistaActiva('eventos');
+    }
+  };
+
+  const handleGuardarEdicionSesion = async (sesionId: string, datosActualizados: Partial<SesionConteo>) => {
+    try {
+      await updateDoc(doc(db, 'sesiones', sesionId), datosActualizados);
+    } catch (err) {
+      console.error('Error al guardar edición de sesión en Firestore:', err);
+    }
+
+    setSesiones((prev) =>
+      prev.map((s) => (s.id === sesionId ? { ...s, ...datosActualizados } : s))
+    );
+
+    if (sesionActiva && sesionActiva.id === sesionId) {
+      setSesionActiva((prev) => (prev ? { ...prev, ...datosActualizados } : prev));
     }
   };
 
@@ -768,6 +826,14 @@ export default function App() {
               eventos={eventos}
               onExportarXLSX={handleExportarXLSX}
               onExportarCSV={handleExportarCSV}
+              onRestaurarSesion={(s) => {
+                if (!usuarioActual) {
+                  setModalAuthAbierto(true);
+                  return;
+                }
+                setSesionParaRestaurar(s);
+                setModalRestaurarAbierto(true);
+              }}
             />
           ) : (
             <div className="p-8 text-center text-slate-500">
@@ -801,6 +867,22 @@ export default function App() {
               }
               setSesionParaUnirse(s);
               setModalUnirseAbierto(true);
+            }}
+            onRestaurarSesion={(s) => {
+              if (!usuarioActual) {
+                setModalAuthAbierto(true);
+                return;
+              }
+              setSesionParaRestaurar(s);
+              setModalRestaurarAbierto(true);
+            }}
+            onEditarSesion={(s) => {
+              if (!usuarioActual) {
+                setModalAuthAbierto(true);
+                return;
+              }
+              setSesionParaEditar(s);
+              setModalEditarAbierto(true);
             }}
           />
         )}
@@ -862,6 +944,34 @@ export default function App() {
           setSesionParaUnirse(null);
         }}
       />{/* UnirseSesionModal end */}
+
+      {/* Modal de Restaurar Sesión Finalizada */}
+      <RestaurarSesionModal
+        abierto={modalRestaurarAbierto}
+        sesion={sesionParaRestaurar}
+        onCerrar={() => {
+          setModalRestaurarAbierto(false);
+          setSesionParaRestaurar(null);
+        }}
+        onConfirmarRestaurar={async (sesion, continuarConteo) => {
+          await handleRestaurarSesion(sesion, continuarConteo);
+        }}
+        onAbrirEditar={(sesion) => {
+          setSesionParaEditar(sesion);
+          setModalEditarAbierto(true);
+        }}
+      />
+
+      {/* Modal de Editar Parámetros de Sesión */}
+      <EditarSesionModal
+        abierto={modalEditarAbierto}
+        sesion={sesionParaEditar}
+        onCerrar={() => {
+          setModalEditarAbierto(false);
+          setSesionParaEditar(null);
+        }}
+        onGuardar={handleGuardarEdicionSesion}
+      />
 
       {/* Barra de navegación inferior — solo visible en móvil (md:hidden interno) */}
       <BottomNav
