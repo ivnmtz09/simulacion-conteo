@@ -18,21 +18,36 @@ export const NuevaSesionModal: React.FC<NuevaSesionModalProps> = ({
   onCerrar,
   onSesionCreada
 }) => {
+  if (!abierto) return null;
+
+  return (
+    <NuevaSesionDialog
+      usuarioActual={usuarioActual}
+      onCerrar={onCerrar}
+      onSesionCreada={onSesionCreada}
+    />
+  );
+};
+
+interface NuevaSesionDialogProps {
+  usuarioActual: string;
+  onCerrar: () => void;
+  onSesionCreada: (sesion: SesionConteo) => void;
+}
+
+const NuevaSesionDialog: React.FC<NuevaSesionDialogProps> = ({
+  usuarioActual,
+  onCerrar,
+  onSesionCreada
+}) => {
   const [nombre, setNombre] = useState('');
   const [ubicacion, setUbicacion] = useState('');
-  // 1. Tipos monitoreados por la sesión en general
-  const [tiposSeleccionados, setTiposSeleccionados] = useState<TipoVehiculo[]>([
-    ...LISTA_TIPOS_VEHICULOS
-  ]);
-  // 2. Tipos que el creador contará personalmente
-  const [misTipos, setMisTipos] = useState<TipoVehiculo[]>([
-    'moto',
-    'carro'
-  ]);
+  // 1. Tipos monitoreados por la sesión en general (inician limpios)
+  const [tiposSeleccionados, setTiposSeleccionados] = useState<TipoVehiculo[]>([]);
+  // 2. Tipos que el creador contará personalmente (inician limpios)
+  const [misTipos, setMisTipos] = useState<TipoVehiculo[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
-
-  if (!abierto) return null;
 
   // Toggle de tipos monitoreados en la sesión general
   const toggleTipoSesion = (tipo: TipoVehiculo) => {
@@ -174,7 +189,7 @@ export const NuevaSesionModal: React.FC<NuevaSesionModalProps> = ({
         <form onSubmit={handleCrear} className="space-y-4">
           <div>
             <label className="block text-xs font-semibold text-slate-300 mb-1">
-              Nombre de la Sesión *
+              Nombre de la Sesión (Día y fecha) *
             </label>
             <div className="relative">
               <Tag className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
@@ -183,7 +198,7 @@ export const NuevaSesionModal: React.FC<NuevaSesionModalProps> = ({
                 required
                 value={nombre}
                 onChange={(e) => setNombre(e.target.value)}
-                placeholder="ej: Calle 15 con Cra 8 - Pico Mañana"
+                placeholder="Nombre (Día y fecha, ej: Lunes 06 de Octubre)"
                 className="w-full bg-slate-800 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
               />
             </div>
@@ -191,7 +206,7 @@ export const NuevaSesionModal: React.FC<NuevaSesionModalProps> = ({
 
           <div>
             <label className="block text-xs font-semibold text-slate-300 mb-1">
-              Ubicación / Carril / Acceso
+              Ubicación (Semáforo X)
             </label>
             <div className="relative">
               <MapPin className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
@@ -199,7 +214,7 @@ export const NuevaSesionModal: React.FC<NuevaSesionModalProps> = ({
                 type="text"
                 value={ubicacion}
                 onChange={(e) => setUbicacion(e.target.value)}
-                placeholder="ej: Acceso Norte - Carril Izquierdo"
+                placeholder="Ubicación (Semáforo X, ej: Semáforo 1 - Cra 8 con Cll 15)"
                 className="w-full bg-slate-800 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
               />
             </div>

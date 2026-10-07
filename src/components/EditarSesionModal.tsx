@@ -125,7 +125,7 @@ const EditarSesionDialog: React.FC<EditarSesionDialogProps> = ({
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-xs font-semibold text-slate-300 mb-1">
-              Nombre de la Sesión *
+              Nombre de la Sesión (Día y fecha) *
             </label>
             <div className="relative">
               <Tag className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
@@ -134,7 +134,7 @@ const EditarSesionDialog: React.FC<EditarSesionDialogProps> = ({
                 required
                 value={nombre}
                 onChange={(e) => setNombre(e.target.value)}
-                placeholder="ej: Calle 15 con Cra 8 - Pico Mañana"
+                placeholder="Nombre (Día y fecha, ej: Lunes 06 de Octubre)"
                 className="w-full bg-slate-800 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
               />
             </div>
@@ -142,7 +142,7 @@ const EditarSesionDialog: React.FC<EditarSesionDialogProps> = ({
 
           <div>
             <label className="block text-xs font-semibold text-slate-300 mb-1">
-              Ubicación / Intersección
+              Ubicación (Semáforo X)
             </label>
             <div className="relative">
               <MapPin className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
@@ -150,7 +150,7 @@ const EditarSesionDialog: React.FC<EditarSesionDialogProps> = ({
                 type="text"
                 value={ubicacion}
                 onChange={(e) => setUbicacion(e.target.value)}
-                placeholder="ej: Intersección semaforizada Norte-Sur"
+                placeholder="Ubicación (Semáforo X, ej: Semáforo 1 - Cra 8 con Cll 15)"
                 className="w-full bg-slate-800 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
               />
             </div>

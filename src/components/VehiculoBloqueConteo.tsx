@@ -32,6 +32,7 @@ interface VehiculoBloqueConteoProps {
   onActualizarCola: (nuevaCola: number[]) => void;
   onActualizarServidor?: (nuevoServidor: VehiculoEnServidor[]) => void;
   onRegistrarEvento: (nuevoEvento: Omit<EventoConteo, 'id'>) => Promise<void>;
+  onDeshacerEvento?: (eventoId: string) => Promise<void> | void;
   eventosDelTipo: EventoConteo[];
 }
 
@@ -63,6 +64,7 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
   onActualizarCola: _onActualizarCola,
   onActualizarServidor: _onActualizarServidor,
   onRegistrarEvento,
+  onDeshacerEvento,
   eventosDelTipo
 }) => {
   const [ultimaEspera, setUltimaEspera] = useState<UltimaEsperaDetalle | null>(null);
@@ -381,45 +383,35 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
     if (e) e.stopPropagation();
     if (!ultimoEvento || !ultimoEvento.id || deshaciendo) return;
 
+    const idParaDeshacer = ultimoEvento.id;
     vibrar(50);
     setAnimandoUndo(true);
     setTimeout(() => setAnimandoUndo(false), 350);
 
     const desc = getDescripcionAccion(ultimoEvento);
+    setMensajeToast(desc);
+    if (toastTimeoutRef.current) {
+      clearTimeout(toastTimeoutRef.current);
+    }
+    toastTimeoutRef.current = setTimeout(() => {
+      setMensajeToast(null);
+    }, 2800);
+
+    // Revertir estados visuales locales si se deshizo una salida
+    if (ultimoEvento.tipoRegistro === 'salida_cola') {
+      setUltimaEspera(null);
+      setUltimoCruceResultado(null);
+    }
+
     setDeshaciendo(true);
-
     try {
-      // Revertir estados visuales locales si se deshizo una salida
-      if (ultimoEvento.tipoRegistro === 'salida_cola') {
-        setUltimaEspera(null);
-        setUltimoCruceResultado(null);
+      if (onDeshacerEvento) {
+        await onDeshacerEvento(idParaDeshacer);
+      } else if (!idParaDeshacer.startsWith('temp_')) {
+        await updateDoc(doc(db, 'eventos', idParaDeshacer), { enPapelera: true });
       }
-
-      let docId = ultimoEvento.id;
-      // Si el id es temporal por optimismo local, esperar brevemente a que Firestore responda con el id real
-      if (docId.startsWith('temp_')) {
-        await new Promise((resolve) => setTimeout(resolve, 300));
-        const eventoActualizado = eventosDelTipo.find(
-          (ev) => ev.timestampCreacion === ultimoEvento.timestampCreacion && !ev.id.startsWith('temp_')
-        );
-        if (eventoActualizado) {
-          docId = eventoActualizado.id;
-        }
-      }
-
-      if (!docId.startsWith('temp_')) {
-        await updateDoc(doc(db, 'eventos', docId), { enPapelera: true });
-      }
-
-      setMensajeToast(desc);
-      if (toastTimeoutRef.current) {
-        clearTimeout(toastTimeoutRef.current);
-      }
-      toastTimeoutRef.current = setTimeout(() => {
-        setMensajeToast(null);
-      }, 2800);
     } catch (err) {
-      console.error('Error al deshacer acción en Firestore:', err);
+      console.error('Error al deshacer acción:', err);
     } finally {
       setDeshaciendo(false);
     }
@@ -510,20 +502,20 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
               </div>
             </div>
 
-            {/* BOTÓN DESHACER (UNDO) FUNCIONAL Y MULTI-NIVEL */}
+            {/* BOTÓN DESHACER (UNDO) SOLO ICONO CON COLOR VIVO */}
             <button
               type="button"
               disabled={!ultimoEvento || deshaciendo}
               onClick={handleDeshacer}
               title={ultimoEvento ? `Deshacer: ${getDescripcionAccion(ultimoEvento).accion}` : 'Sin acciones para deshacer'}
-              className={`touch-btn group text-[11px] px-2.5 py-1.5 rounded-xl border flex items-center gap-1.5 transition-all active:scale-95 transition-transform cursor-pointer ${
+              aria-label="Deshacer última acción"
+              className={`touch-btn group w-9 h-9 rounded-xl border flex items-center justify-center transition-all cursor-pointer active:scale-90 shrink-0 ${
                 ultimoEvento
-                  ? 'bg-slate-800/90 hover:bg-slate-750 hover:border-amber-500/50 text-slate-300 hover:text-white border-slate-700 shadow-sm'
-                  : 'bg-slate-800/30 border-slate-800/60 text-slate-600 cursor-not-allowed opacity-40'
+                  ? 'bg-amber-500/20 text-amber-300 hover:bg-amber-500 hover:text-slate-950 border-amber-500/40 shadow-sm shadow-amber-500/20'
+                  : 'bg-slate-800/30 border-slate-800/60 text-slate-600 cursor-not-allowed opacity-30'
               }`}
             >
-              <Undo2 className={`w-3.5 h-3.5 transition-transform duration-300 shrink-0 ${animandoUndo ? '-rotate-90 text-amber-400 scale-125' : 'text-slate-400 group-hover:text-amber-400'}`} />
-              <span className="hidden sm:inline font-medium">Deshacer</span>
+              <Undo2 className={`w-4 h-4 transition-transform duration-300 shrink-0 ${animandoUndo ? '-rotate-90 text-amber-300 scale-125' : ''}`} />
             </button>
           </div>
         </div>

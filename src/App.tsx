@@ -258,10 +258,47 @@ export default function App() {
       const docRef = await addDoc(collection(db, 'eventos'), nuevoEventoData);
       // Reemplazar el id temporal con el id definitivo de Firestore
       setEventos((prev) =>
-        prev.map((e) => (e.id === idTemp ? { ...e, id: docRef.id } : e))
+        prev.map((e) => {
+          if (e.id === idTemp) {
+            // Si el usuario deshizo este evento mientras se guardaba, propagar en Firestore
+            if (e.enPapelera) {
+              updateDoc(doc(db, 'eventos', docRef.id), { enPapelera: true }).catch(() => {});
+            }
+            return { ...e, id: docRef.id };
+          }
+          return e;
+        })
+      );
+      setTodosLosEventos((prev) =>
+        prev.map((e) => {
+          if (e.id === idTemp) {
+            return { ...e, id: docRef.id };
+          }
+          return e;
+        })
       );
     } catch (err) {
       console.error('Error al guardar en Firestore (se mantiene en local):', err);
+    }
+  };
+
+  // Deshacer evento de forma instantánea (<0ms) en memoria y en Firestore
+  const handleDeshacerEvento = async (eventoId: string) => {
+    // 1. Actualización optimista inmediata en memoria de React
+    setEventos((prev) =>
+      prev.map((e) => (e.id === eventoId ? { ...e, enPapelera: true } : e))
+    );
+    setTodosLosEventos((prev) =>
+      prev.map((e) => (e.id === eventoId ? { ...e, enPapelera: true } : e))
+    );
+
+    // 2. Si no es un ID temporal, actualizar en Firestore
+    if (!eventoId.startsWith('temp_')) {
+      try {
+        await updateDoc(doc(db, 'eventos', eventoId), { enPapelera: true });
+      } catch (err) {
+        console.error('Error al marcar evento en papelera en Firestore:', err);
+      }
     }
   };
 
@@ -789,6 +826,7 @@ export default function App() {
                             sesionId={sesionActiva.id}
                             usuario={usuarioActual || 'aforador@aforo.local'}
                             onRegistrarEvento={handleRegistrarEvento}
+                            onDeshacerEvento={handleDeshacerEvento}
                             eventosPeaton={eventosDelTipo}
                           />
                         );
@@ -806,6 +844,7 @@ export default function App() {
                           onActualizarCola={(nuevaCola) => handleActualizarCola(tipo, nuevaCola)}
                           onActualizarServidor={(nuevoServidor) => handleActualizarServidor(tipo, nuevoServidor)}
                           onRegistrarEvento={handleRegistrarEvento}
+                          onDeshacerEvento={handleDeshacerEvento}
                           eventosDelTipo={eventosDelTipo}
                         />
                       );
