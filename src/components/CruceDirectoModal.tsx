@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { X, Zap, Check } from 'lucide-react';
+import { X, Zap, Check, Disc } from 'lucide-react';
 import type { TipoVehiculo, EventoConteo } from '../types/conteo';
 import { TIPOS_VEHICULOS, LISTA_TIPOS_VEHICULOS } from '../types/conteo';
+import { VehiculoIcono } from './VehiculoIcono';
 import {
   calcularEstadoSemaforo,
   mapearFaseACategoria,
@@ -136,13 +137,13 @@ export const CruceDirectoModal: React.FC<CruceDirectoModalProps> = ({
                     key={t}
                     type="button"
                     onClick={() => setTipoSeleccionado(t)}
-                    className={`touch-btn p-2.5 rounded-xl border flex flex-col items-center justify-center gap-1 transition cursor-pointer ${
+                    className={`touch-btn p-2.5 rounded-xl border flex flex-col items-center justify-center gap-1.5 transition cursor-pointer ${
                       seleccionado
                         ? 'bg-blue-600/20 border-blue-500 text-white shadow-md ring-1 ring-blue-500'
                         : 'bg-slate-800/60 border-slate-700/80 text-slate-400 hover:text-slate-200 hover:bg-slate-800'
                     }`}
                   >
-                    <span className="text-2xl select-none">{info.emoji}</span>
+                    <VehiculoIcono tipo={t} className="w-6 h-6" />
                     <span className="text-xs font-bold">{info.nombre}</span>
                   </button>
                 );
@@ -155,17 +156,27 @@ export const CruceDirectoModal: React.FC<CruceDirectoModalProps> = ({
             <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
               2. Fase Semafórica (Determinación Automática):
             </label>
-            <div className={`p-3 rounded-2xl border flex items-center justify-between transition-all ${
+            <div className={`p-3 rounded-2xl border flex items-center justify-between transition-all duration-300 ${
               estadoSemaforo.sincronizado
                 ? estadoSemaforo.fase === 'verde'
-                  ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-300'
+                  ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.25)]'
                   : estadoSemaforo.fase === 'amarillo'
-                  ? 'bg-amber-950/40 border-amber-500/40 text-amber-300'
-                  : 'bg-rose-950/40 border-rose-500/40 text-rose-300'
+                  ? 'bg-amber-950/40 border-amber-500/40 text-amber-300 shadow-[0_0_15px_rgba(245,158,11,0.25)]'
+                  : 'bg-rose-950/40 border-rose-500/40 text-rose-300 shadow-[0_0_15px_rgba(244,63,94,0.25)]'
                 : 'bg-slate-950/70 border-slate-800 text-slate-400'
             }`}>
-              <div className="flex items-center gap-2.5">
-                <span className="text-2xl select-none">{infoFase.emoji}</span>
+              <div className="flex items-center gap-3">
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${
+                  estadoSemaforo.fase === 'verde'
+                    ? 'bg-emerald-500/20 text-emerald-400 shadow-[0_0_12px_rgba(16,185,129,0.5)] ring-1 ring-emerald-500/40'
+                    : estadoSemaforo.fase === 'amarillo'
+                    ? 'bg-amber-500/20 text-amber-400 shadow-[0_0_12px_rgba(245,158,11,0.5)] ring-1 ring-amber-500/40'
+                    : estadoSemaforo.fase === 'rojo'
+                    ? 'bg-rose-500/20 text-rose-400 shadow-[0_0_12px_rgba(244,63,94,0.5)] ring-1 ring-rose-500/40'
+                    : 'bg-slate-800 text-slate-400'
+                }`}>
+                  <Disc className="w-5 h-5 animate-pulse" />
+                </div>
                 <div>
                   <div className="text-xs font-black uppercase">
                     Fase Actual: {infoFase.etiqueta}

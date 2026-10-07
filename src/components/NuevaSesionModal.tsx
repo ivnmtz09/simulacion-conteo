@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { X, CheckSquare, Square, Play, AlertCircle, MapPin, Tag } from 'lucide-react';
+import { X, CheckSquare, Square, Play, AlertCircle, MapPin, Tag, Check, Users } from 'lucide-react';
 import type { TipoVehiculo, SesionConteo } from '../types/conteo';
 import { TIPOS_VEHICULOS, LISTA_TIPOS_VEHICULOS } from '../types/conteo';
 import { db, collection, addDoc } from '../lib/firebase';
+import { VehiculoIcono } from './VehiculoIcono';
 
 interface NuevaSesionModalProps {
   abierto: boolean;
@@ -19,7 +20,12 @@ export const NuevaSesionModal: React.FC<NuevaSesionModalProps> = ({
 }) => {
   const [nombre, setNombre] = useState('');
   const [ubicacion, setUbicacion] = useState('');
+  // 1. Tipos monitoreados por la sesión en general
   const [tiposSeleccionados, setTiposSeleccionados] = useState<TipoVehiculo[]>([
+    ...LISTA_TIPOS_VEHICULOS
+  ]);
+  // 2. Tipos que el creador contará personalmente
+  const [misTipos, setMisTipos] = useState<TipoVehiculo[]>([
     'moto',
     'carro'
   ]);
@@ -28,20 +34,45 @@ export const NuevaSesionModal: React.FC<NuevaSesionModalProps> = ({
 
   if (!abierto) return null;
 
-  const toggleTipo = (tipo: TipoVehiculo) => {
+  // Toggle de tipos monitoreados en la sesión general
+  const toggleTipoSesion = (tipo: TipoVehiculo) => {
     if (tiposSeleccionados.includes(tipo)) {
       setTiposSeleccionados(tiposSeleccionados.filter((t) => t !== tipo));
+      // Si se desmarca de la sesión, desmarcarlo de misTipos
+      setMisTipos(misTipos.filter((t) => t !== tipo));
     } else {
       setTiposSeleccionados([...tiposSeleccionados, tipo]);
     }
   };
 
-  const seleccionarTodos = () => {
+  const seleccionarTodosSesion = () => {
     setTiposSeleccionados([...LISTA_TIPOS_VEHICULOS]);
   };
 
-  const limpiarSeleccion = () => {
+  const limpiarSesion = () => {
     setTiposSeleccionados([]);
+    setMisTipos([]);
+  };
+
+  // Toggle de tipos que contará personalmente el creador
+  const toggleMiTipo = (tipo: TipoVehiculo) => {
+    if (misTipos.includes(tipo)) {
+      setMisTipos(misTipos.filter((t) => t !== tipo));
+    } else {
+      // Si no estaba en la sesión general, agregarlo automáticamente
+      if (!tiposSeleccionados.includes(tipo)) {
+        setTiposSeleccionados([...tiposSeleccionados, tipo]);
+      }
+      setMisTipos([...misTipos, tipo]);
+    }
+  };
+
+  const tomarTodosMisTipos = () => {
+    setMisTipos([...tiposSeleccionados]);
+  };
+
+  const limpiarMisTipos = () => {
+    setMisTipos([]);
   };
 
   const handleCrear = async (e: React.FormEvent) => {
@@ -51,7 +82,7 @@ export const NuevaSesionModal: React.FC<NuevaSesionModalProps> = ({
       return;
     }
     if (tiposSeleccionados.length === 0) {
-      setError('Debes seleccionar al menos un tipo de vehículo o peatón para contar.');
+      setError('Debes seleccionar al menos un tipo de vehículo o peatón para monitorear en la sesión.');
       return;
     }
 
@@ -59,8 +90,9 @@ export const NuevaSesionModal: React.FC<NuevaSesionModalProps> = ({
     setGuardando(true);
 
     try {
+      // Solo asignar al creador los vehículos que él personalmente eligió contar
       const asignacionesIniciales: Partial<Record<TipoVehiculo, string>> = {};
-      tiposSeleccionados.forEach((t) => {
+      misTipos.forEach((t) => {
         asignacionesIniciales[t] = usuarioActual;
       });
 
@@ -85,11 +117,11 @@ export const NuevaSesionModal: React.FC<NuevaSesionModalProps> = ({
 
       onSesionCreada(sesionCreada);
       onCerrar();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error al guardar sesión:', err);
       // Fallback offline / local
       const asignacionesIniciales: Partial<Record<TipoVehiculo, string>> = {};
-      tiposSeleccionados.forEach((t) => {
+      misTipos.forEach((t) => {
         asignacionesIniciales[t] = usuarioActual;
       });
 
@@ -102,6 +134,7 @@ export const NuevaSesionModal: React.FC<NuevaSesionModalProps> = ({
         asignaciones: asignacionesIniciales,
         tiposSeleccionados,
         activa: true,
+        estado: 'abierta',
         fechaCreacion: new Date().toISOString(),
         fechaCierre: null
       };
@@ -114,10 +147,10 @@ export const NuevaSesionModal: React.FC<NuevaSesionModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg p-5 sm:p-6 shadow-2xl relative my-8">
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-xl p-5 sm:p-6 shadow-2xl relative my-8">
         <button
           onClick={onCerrar}
-          className="absolute top-4 right-4 text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800"
+          className="absolute top-4 right-4 text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition"
         >
           <X className="w-5 h-5" />
         </button>
@@ -127,7 +160,7 @@ export const NuevaSesionModal: React.FC<NuevaSesionModalProps> = ({
             <span>Nueva Sesión de Conteo</span>
           </h2>
           <p className="text-xs text-slate-400 mt-1">
-            Define la intersección y elige tus roles de conteo asignados para esta tanda.
+            Define la intersección, qué tipos monitoreará la sesión en general y cuáles contarás tú personalmente.
           </p>
         </div>
 
@@ -172,16 +205,16 @@ export const NuevaSesionModal: React.FC<NuevaSesionModalProps> = ({
             </div>
           </div>
 
-          {/* Selección de roles con checkboxes */}
-          <div className="pt-2">
-            <div className="flex items-center justify-between mb-2">
+          {/* 1. SELECCIÓN GENERAL DE VEHÍCULOS DE LA SESIÓN */}
+          <div className="pt-2 border-t border-slate-800">
+            <div className="flex items-center justify-between mb-1.5">
               <label className="text-xs font-bold text-slate-200">
-                Selección de Rol: ¿Qué vas a contar? *
+                1. Vehículos de la Sesión (General) *
               </label>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={seleccionarTodos}
+                  onClick={seleccionarTodosSesion}
                   className="text-[11px] text-blue-400 hover:text-blue-300 underline"
                 >
                   Todos
@@ -189,7 +222,7 @@ export const NuevaSesionModal: React.FC<NuevaSesionModalProps> = ({
                 <span className="text-slate-600 text-xs">|</span>
                 <button
                   type="button"
-                  onClick={limpiarSeleccion}
+                  onClick={limpiarSesion}
                   className="text-[11px] text-slate-400 hover:text-slate-300 underline"
                 >
                   Limpiar
@@ -197,48 +230,123 @@ export const NuevaSesionModal: React.FC<NuevaSesionModalProps> = ({
               </div>
             </div>
 
-            <p className="text-[11px] text-slate-400 mb-3">
-              Marca uno o varios tipos. En la pantalla de aforo aparecerá un bloque dedicado para cada categoría seleccionada:
+            <p className="text-[11px] text-slate-400 mb-2.5">
+              Categorías que el equipo monitoreará en este estudio ({tiposSeleccionados.length} activas):
             </p>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {LISTA_TYPES_RENDER.map((tipo) => {
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {LISTA_TIPOS_VEHICULOS.map((tipo) => {
                 const info = TIPOS_VEHICULOS[tipo];
                 const seleccionado = tiposSeleccionados.includes(tipo);
                 return (
-                  <div
+                  <button
                     key={tipo}
-                    onClick={() => toggleTipo(tipo)}
-                    className={`touch-btn cursor-pointer p-3 rounded-xl border flex items-start gap-3 transition ${
+                    type="button"
+                    onClick={() => toggleTipoSesion(tipo)}
+                    className={`touch-btn p-2.5 rounded-xl border text-left flex items-center gap-2.5 transition cursor-pointer ${
                       seleccionado
-                        ? 'bg-slate-800/90 border-blue-500/60 shadow-sm shadow-blue-500/10'
-                        : 'bg-slate-800/40 border-slate-700/60 opacity-75 hover:opacity-100'
+                        ? 'bg-slate-800 border-blue-500/60 shadow-sm shadow-blue-500/10'
+                        : 'bg-slate-900/60 border-slate-800 opacity-60 hover:opacity-100'
                     }`}
                   >
-                    <div className="mt-0.5 text-blue-400 shrink-0">
+                    <div className="text-blue-400 shrink-0">
                       {seleccionado ? (
                         <CheckSquare className="w-4 h-4 text-blue-400" />
                       ) : (
                         <Square className="w-4 h-4 text-slate-500" />
                       )}
                     </div>
-                    <span className="text-2xl shrink-0 select-none leading-none pt-0.5">
-                      {info.emoji}
+                    <div className="w-7 h-7 rounded-lg bg-slate-800 flex items-center justify-center shrink-0 border border-slate-700/60">
+                      <VehiculoIcono tipo={tipo} className={`w-4 h-4 ${info.color}`} />
+                    </div>
+                    <span className={`text-xs font-bold truncate ${seleccionado ? 'text-white' : 'text-slate-400'}`}>
+                      {info.nombre}
                     </span>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className={`text-sm font-bold ${info.color}`}>
-                          {info.nombre}
-                        </span>
-                        {!info.esVehiculoMotorizado && (
-                          <span className="text-[9px] px-1 rounded bg-emerald-500/20 text-emerald-300 font-semibold">
-                            Sin cola
-                          </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* 2. ASIGNACIÓN PERSONAL DEL CREADOR (misTipos) */}
+          <div className="pt-2 border-t border-slate-800">
+            <div className="flex items-center justify-between mb-1.5">
+              <div>
+                <label className="text-xs font-bold text-slate-200">
+                  2. Tu Asignación Inicial: ¿Cuáles contarás tú?
+                </label>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={tomarTodosMisTipos}
+                  className="text-[11px] text-blue-400 hover:text-blue-300 underline"
+                >
+                  Contar todos
+                </button>
+                <span className="text-slate-600 text-xs">|</span>
+                <button
+                  type="button"
+                  onClick={limpiarMisTipos}
+                  className="text-[11px] text-slate-400 hover:text-slate-300 underline"
+                >
+                  Ninguno ahora
+                </button>
+              </div>
+            </div>
+
+            <p className="text-[11px] text-slate-400 mb-2.5">
+              Los vehículos no seleccionados aquí quedarán <strong className="text-emerald-400">libres</strong> para que tus compañeros se unan y los aforen sin conflicto.
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {tiposSeleccionados.map((tipo) => {
+                const info = TIPOS_VEHICULOS[tipo];
+                const tomadoPorMi = misTipos.includes(tipo);
+
+                return (
+                  <div
+                    key={tipo}
+                    onClick={() => toggleMiTipo(tipo)}
+                    className={`touch-btn cursor-pointer p-2.5 rounded-xl border flex items-center justify-between gap-2 transition ${
+                      tomadoPorMi
+                        ? 'bg-blue-950/30 border-blue-500/60 shadow-sm'
+                        : 'bg-slate-800/40 border-slate-800 hover:border-slate-700'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="text-blue-400 shrink-0">
+                        {tomadoPorMi ? (
+                          <CheckSquare className="w-4 h-4 text-blue-400" />
+                        ) : (
+                          <Square className="w-4 h-4 text-slate-500" />
                         )}
                       </div>
-                      <p className="text-[11px] text-slate-400 leading-tight mt-0.5">
-                        {info.subtitulo}
-                      </p>
+                      <div className="w-7 h-7 rounded-lg bg-slate-800 flex items-center justify-center shrink-0 border border-slate-700/60">
+                        <VehiculoIcono tipo={tipo} className={`w-4 h-4 ${info.color}`} />
+                      </div>
+                      <div className="min-w-0">
+                        <span className="text-xs font-bold text-white block truncate">
+                          {info.nombre}
+                        </span>
+                        <span className="text-[10px] text-slate-400 truncate block">
+                          {info.subtitulo}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="shrink-0">
+                      {tomadoPorMi ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                          <Check className="w-3 h-3" />
+                          Tú
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                          <Users className="w-3 h-3" />
+                          Libre
+                        </span>
+                      )}
                     </div>
                   </div>
                 );
@@ -246,11 +354,11 @@ export const NuevaSesionModal: React.FC<NuevaSesionModalProps> = ({
             </div>
           </div>
 
-          <div className="pt-3">
+          <div className="pt-3 border-t border-slate-800">
             <button
               type="submit"
               disabled={guardando}
-              className="touch-btn w-full py-3 rounded-xl font-bold text-sm bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2 disabled:opacity-50"
+              className="touch-btn w-full py-3 rounded-xl font-bold text-sm bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
             >
               <Play className="w-4 h-4 fill-current" />
               <span>{guardando ? 'Iniciando Sesión...' : 'Comenzar Conteo Ahora'}</span>
@@ -261,5 +369,3 @@ export const NuevaSesionModal: React.FC<NuevaSesionModalProps> = ({
     </div>
   );
 };
-
-const LISTA_TYPES_RENDER = LISTA_TIPOS_VEHICULOS;

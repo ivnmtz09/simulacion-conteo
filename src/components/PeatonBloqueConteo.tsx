@@ -1,7 +1,9 @@
-import React from 'react';
-import { Footprints, TriangleAlert, ShieldCheck } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Footprints, TriangleAlert, ShieldCheck, Undo2, X } from 'lucide-react';
 import type { EventoConteo, CategoriaSalidaPeaton } from '../types/conteo';
 import { TIPOS_VEHICULOS } from '../types/conteo';
+import { VehiculoIcono } from './VehiculoIcono';
+import { db, doc, updateDoc } from '../lib/firebase';
 
 interface PeatonBloqueConteoProps {
   sesionId: string;
@@ -10,12 +12,22 @@ interface PeatonBloqueConteoProps {
   eventosPeaton: EventoConteo[];
 }
 
+interface MensajeToast {
+  accion: string;
+  detalle: string;
+}
+
 export const PeatonBloqueConteo: React.FC<PeatonBloqueConteoProps> = ({
   sesionId,
   usuario,
   onRegistrarEvento,
   eventosPeaton
 }) => {
+  const [animandoUndo, setAnimandoUndo] = useState(false);
+  const [deshaciendo, setDeshaciendo] = useState(false);
+  const [mensajeToast, setMensajeToast] = useState<MensajeToast | null>(null);
+  const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const info = TIPOS_VEHICULOS['peaton'];
 
   // Métricas (excluyendo papelera)
@@ -24,18 +36,58 @@ export const PeatonBloqueConteo: React.FC<PeatonBloqueConteoProps> = ({
   const countAnden = eventosPeaton.filter((e) => e.categoriaSalida === 'anden' && !e.enPapelera).length;
   const totalPeatones = countCebra + countFueraCebra + countAnden;
 
-  const vibrar = () => {
+  // Eventos activos ordenados cronológicamente para Deshacer (Undo)
+  const eventosActivos = eventosPeaton
+    .filter((e) => !e.enPapelera)
+    .sort((a, b) => a.timestampCreacion - b.timestampCreacion);
+
+  const ultimoEvento = eventosActivos.length > 0 ? eventosActivos[eventosActivos.length - 1] : null;
+
+  useEffect(() => {
+    return () => {
+      if (toastTimeoutRef.current) {
+        clearTimeout(toastTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const vibrar = (duracion = 40) => {
     if (typeof window !== 'undefined' && 'navigator' in window && navigator.vibrate) {
       try {
-        navigator.vibrate(35);
+        navigator.vibrate(duracion);
       } catch {
         // Ignorar
       }
     }
   };
 
+  const getDescripcionCrucePeaton = (evento: EventoConteo): MensajeToast => {
+    switch (evento.categoriaSalida) {
+      case 'cebra':
+        return {
+          accion: 'Cruce por cebra revertido',
+          detalle: 'Se restó 1 al conteo seguro'
+        };
+      case 'fuera_cebra':
+        return {
+          accion: 'Cruce fuera de cebra revertido',
+          detalle: 'Se restó 1 al cruce con riesgo'
+        };
+      case 'anden':
+        return {
+          accion: 'Paso por andén revertido',
+          detalle: 'Se restó 1 al flujo peatonal'
+        };
+      default:
+        return {
+          accion: 'Cruce peatonal revertido',
+          detalle: 'Evento enviado a papelera'
+        };
+    }
+  };
+
   const handleCrucePeaton = async (categoria: CategoriaSalidaPeaton) => {
-    vibrar();
+    vibrar(35);
     const ahoraMs = Date.now();
     const nuevoEvento: Omit<EventoConteo, 'id'> = {
       sesionId,
@@ -49,15 +101,79 @@ export const PeatonBloqueConteo: React.FC<PeatonBloqueConteoProps> = ({
     await onRegistrarEvento(nuevoEvento);
   };
 
+  const handleDeshacer = async (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (!ultimoEvento || !ultimoEvento.id || deshaciendo) return;
+
+    vibrar(50);
+    setAnimandoUndo(true);
+    setTimeout(() => setAnimandoUndo(false), 350);
+
+    const desc = getDescripcionCrucePeaton(ultimoEvento);
+    setDeshaciendo(true);
+
+    try {
+      let docId = ultimoEvento.id;
+      if (docId.startsWith('temp_')) {
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        const eventoActualizado = eventosPeaton.find(
+          (ev) => ev.timestampCreacion === ultimoEvento.timestampCreacion && !ev.id.startsWith('temp_')
+        );
+        if (eventoActualizado) {
+          docId = eventoActualizado.id;
+        }
+      }
+
+      if (!docId.startsWith('temp_')) {
+        await updateDoc(doc(db, 'eventos', docId), { enPapelera: true });
+      }
+
+      setMensajeToast(desc);
+      if (toastTimeoutRef.current) {
+        clearTimeout(toastTimeoutRef.current);
+      }
+      toastTimeoutRef.current = setTimeout(() => {
+        setMensajeToast(null);
+      }, 2800);
+    } catch (err) {
+      console.error('Error al deshacer cruce peatonal en Firestore:', err);
+    } finally {
+      setDeshaciendo(false);
+    }
+  };
+
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-lg flex flex-col justify-between transition hover:border-slate-700/80">
+    <div className="relative bg-slate-900 border border-slate-800 rounded-3xl p-4 sm:p-5 shadow-lg flex flex-col justify-between transition hover:border-slate-700/80">
+      {/* Toast Flotante Temporal de Deshacer */}
+      {mensajeToast && (
+        <div className="absolute top-3 left-3 right-3 z-30 bg-slate-950/95 border border-amber-500/60 text-amber-200 px-3.5 py-2.5 rounded-2xl text-xs font-semibold shadow-2xl flex items-center justify-between gap-2.5 animate-in fade-in slide-in-from-top-2 duration-200 backdrop-blur-md">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="p-1.5 rounded-xl bg-amber-500/20 text-amber-400 shrink-0">
+              <Undo2 className="w-4 h-4" />
+            </div>
+            <div className="truncate">
+              <p className="font-bold text-amber-300 text-xs truncate">{mensajeToast.accion}</p>
+              <p className="text-[10px] text-slate-400 truncate">{mensajeToast.detalle}</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setMensajeToast(null)}
+            className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 shrink-0 text-xs cursor-pointer active:scale-95 transition-transform"
+            aria-label="Cerrar notificación"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
       <div>
         {/* Header */}
         <div className="flex items-center justify-between pb-3 border-b border-slate-800">
           <div className="flex items-center gap-3">
-            <span className="text-3xl select-none leading-none" role="img" aria-label="Peatón">
-              🚶
-            </span>
+            <div className={`p-2 rounded-xl ${info.badgeBg} ${info.color} flex items-center justify-center shrink-0`}>
+              <VehiculoIcono tipo="peaton" className="w-6 h-6" />
+            </div>
             <div>
               <div className="flex items-center gap-2">
                 <h3 className={`text-base font-extrabold tracking-tight ${info.color}`}>
@@ -73,9 +189,27 @@ export const PeatonBloqueConteo: React.FC<PeatonBloqueConteoProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-700 bg-slate-800/80 font-mono">
-            <span className="text-xs text-slate-400">Total:</span>
-            <span className="text-base font-extrabold text-white">{totalPeatones}</span>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-700 bg-slate-800/80 font-mono">
+              <span className="text-xs text-slate-400">Total:</span>
+              <span className="text-base font-extrabold text-white">{totalPeatones}</span>
+            </div>
+
+            {/* Botón Deshacer */}
+            <button
+              type="button"
+              disabled={!ultimoEvento || deshaciendo}
+              onClick={handleDeshacer}
+              title={ultimoEvento ? `Deshacer: ${getDescripcionCrucePeaton(ultimoEvento).accion}` : 'Sin cruces para deshacer'}
+              className={`touch-btn group text-[11px] px-2.5 py-1.5 rounded-xl border flex items-center gap-1.5 transition-all active:scale-95 transition-transform cursor-pointer ${
+                ultimoEvento
+                  ? 'bg-slate-800/90 hover:bg-slate-750 hover:border-amber-500/50 text-slate-300 hover:text-white border-slate-700 shadow-sm'
+                  : 'bg-slate-800/30 border-slate-800/60 text-slate-600 cursor-not-allowed opacity-40'
+              }`}
+            >
+              <Undo2 className={`w-3.5 h-3.5 transition-transform duration-300 shrink-0 ${animandoUndo ? '-rotate-90 text-amber-400 scale-125' : 'text-slate-400 group-hover:text-amber-400'}`} />
+              <span className="hidden sm:inline font-medium">Deshacer</span>
+            </button>
           </div>
         </div>
 
@@ -85,11 +219,12 @@ export const PeatonBloqueConteo: React.FC<PeatonBloqueConteoProps> = ({
           <button
             type="button"
             onClick={() => handleCrucePeaton('cebra')}
-            className="touch-btn w-full py-4 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white shadow-md shadow-emerald-600/20 flex items-center justify-between active:scale-95 border border-emerald-400/30"
+            className="touch-btn w-full py-4 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white shadow-md shadow-emerald-600/20 flex items-center justify-between active:scale-95 transition-transform border border-emerald-400/30 cursor-pointer"
           >
             <div className="flex items-center gap-2.5 font-bold text-sm sm:text-base">
-              <span className="text-xl select-none leading-none">🦓</span>
-              <ShieldCheck className="w-6 h-6 text-emerald-200 shrink-0" />
+              <div className="p-1 rounded-lg bg-black/20 text-emerald-200 shrink-0">
+                <ShieldCheck className="w-6 h-6" />
+              </div>
               <span>Cruza por cebra</span>
             </div>
             <div className="flex items-center gap-2">
@@ -106,10 +241,12 @@ export const PeatonBloqueConteo: React.FC<PeatonBloqueConteoProps> = ({
           <button
             type="button"
             onClick={() => handleCrucePeaton('fuera_cebra')}
-            className="touch-btn w-full py-4 px-4 rounded-xl bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-slate-950 shadow-md shadow-amber-600/20 flex items-center justify-between active:scale-95 border border-amber-300/30"
+            className="touch-btn w-full py-4 px-4 rounded-xl bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-slate-950 shadow-md shadow-amber-600/20 flex items-center justify-between active:scale-95 transition-transform border border-amber-300/30 cursor-pointer"
           >
             <div className="flex items-center gap-2.5 font-bold text-sm sm:text-base">
-              <TriangleAlert className="w-6 h-6 text-slate-950 shrink-0" />
+              <div className="p-1 rounded-lg bg-black/20 text-slate-950 shrink-0">
+                <TriangleAlert className="w-6 h-6" />
+              </div>
               <span>Cruza fuera de cebra (imprudente)</span>
             </div>
             <div className="flex items-center gap-2">
@@ -126,10 +263,12 @@ export const PeatonBloqueConteo: React.FC<PeatonBloqueConteoProps> = ({
           <button
             type="button"
             onClick={() => handleCrucePeaton('anden')}
-            className="touch-btn w-full py-4 px-4 rounded-xl bg-slate-800 hover:bg-slate-750 text-slate-200 border border-slate-700 shadow-md flex items-center justify-between active:scale-95"
+            className="touch-btn w-full py-4 px-4 rounded-xl bg-slate-800 hover:bg-slate-750 text-slate-200 border border-slate-700 shadow-md flex items-center justify-between active:scale-95 transition-transform cursor-pointer"
           >
             <div className="flex items-center gap-2.5 font-bold text-sm sm:text-base">
-              <Footprints className="w-6 h-6 text-blue-400 shrink-0" />
+              <div className="p-1 rounded-lg bg-slate-700/60 text-blue-400 shrink-0">
+                <Footprints className="w-6 h-6" />
+              </div>
               <span>Pasa por andén/acera</span>
             </div>
             <div className="flex items-center gap-2">

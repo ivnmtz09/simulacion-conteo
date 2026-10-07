@@ -11,7 +11,11 @@ import {
   X,
   Save,
   FileSpreadsheet,
-  Download
+  Download,
+  Disc,
+  Zap,
+  CircleParking,
+  Footprints
 } from 'lucide-react';
 import type {
   EventoConteo,
@@ -21,6 +25,7 @@ import type {
   TipoRegistroEvento
 } from '../types/conteo';
 import { TIPOS_VEHICULOS, LISTA_TIPOS_VEHICULOS } from '../types/conteo';
+import { VehiculoIcono } from './VehiculoIcono';
 import { db, doc, updateDoc, addDoc, collection } from '../lib/firebase';
 
 interface EventosTablaCRUDProps {
@@ -334,7 +339,7 @@ export const EventosTablaCRUD: React.FC<EventosTablaCRUDProps> = ({
                     : 'bg-slate-800 text-slate-400 hover:text-white'
                 }`}
               >
-                <span className="text-sm select-none">{info.emoji}</span>
+                <VehiculoIcono tipo={tipo} className="w-4 h-4" />
                 <span className={filtroTipo === tipo ? 'text-white' : info.color}>
                   {info.nombre}
                 </span>
@@ -399,7 +404,7 @@ export const EventosTablaCRUD: React.FC<EventosTablaCRUDProps> = ({
                       {/* Tipo de vehículo */}
                       <td className="py-2.5 px-3 sm:px-4 whitespace-nowrap">
                         <span className={`inline-flex items-center gap-1.5 font-bold ${infoVehiculo?.color}`}>
-                          <span className="text-base select-none">{infoVehiculo?.emoji}</span>
+                          <VehiculoIcono tipo={ev.tipoVehiculo} className="w-4 h-4" />
                           <span>{infoVehiculo?.nombre || ev.tipoVehiculo}</span>
                         </span>
                       </td>
@@ -410,15 +415,15 @@ export const EventosTablaCRUD: React.FC<EventosTablaCRUDProps> = ({
                           <div className="flex flex-col gap-1 items-start">
                             {ev.faseCruce === 'verde' ? (
                               <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold">
-                                <CheckCircle2 className="w-3.5 h-3.5" /> 🟢 Verde ({ev.segundoEnCiclo !== null && ev.segundoEnCiclo !== undefined ? `${ev.segundoEnCiclo}s` : 'respeta'})
+                                <Disc className="w-3.5 h-3.5 fill-emerald-500/40 text-emerald-400" /> Verde ({ev.segundoEnCiclo !== null && ev.segundoEnCiclo !== undefined ? `${ev.segundoEnCiclo}s` : 'respeta'})
                               </span>
                             ) : ev.faseCruce === 'amarillo' ? (
                               <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-amber-500/10 text-amber-300 border border-amber-500/20 font-semibold">
-                                <TriangleAlert className="w-3.5 h-3.5 text-amber-400" /> 🟡 Amarillo ({ev.segundoEnCiclo !== null && ev.segundoEnCiclo !== undefined ? `${ev.segundoEnCiclo}s` : 'respeta'})
+                                <Disc className="w-3.5 h-3.5 fill-amber-500/40 text-amber-400" /> Amarillo ({ev.segundoEnCiclo !== null && ev.segundoEnCiclo !== undefined ? `${ev.segundoEnCiclo}s` : 'respeta'})
                               </span>
                             ) : ev.faseCruce === 'rojo' ? (
                               <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20 font-semibold">
-                                <TriangleAlert className="w-3.5 h-3.5" /> 🔴 Rojo ({ev.segundoEnCiclo !== null && ev.segundoEnCiclo !== undefined ? `${ev.segundoEnCiclo}s` : 'se vuela'})
+                                <Disc className="w-3.5 h-3.5 fill-rose-500/40 text-rose-400" /> Rojo ({ev.segundoEnCiclo !== null && ev.segundoEnCiclo !== undefined ? `${ev.segundoEnCiclo}s` : 'se vuela'})
                               </span>
                             ) : ev.categoriaSalida === 'respeta' ? (
                               <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold">
@@ -430,7 +435,9 @@ export const EventosTablaCRUD: React.FC<EventosTablaCRUDProps> = ({
                               </span>
                             )}
                             {ev.esFlujoLibre && (
-                              <span className="text-[10px] text-amber-400 font-mono">⚡ Flujo libre</span>
+                              <span className="inline-flex items-center gap-1 text-[10px] text-amber-400 font-mono">
+                                <Zap className="w-3 h-3 fill-amber-400/40" /> Flujo libre
+                              </span>
                             )}
                           </div>
                         ) : ev.tipoRegistro === 'entrada_cola' ? (
@@ -447,25 +454,25 @@ export const EventosTablaCRUD: React.FC<EventosTablaCRUDProps> = ({
                           </span>
                         ) : ev.tipoRegistro === 'parqueo_inicia' ? (
                           <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-amber-500/20 text-amber-200 border border-amber-500/40 font-bold">
-                            <span>🅿️</span> Inicia parqueo en carril
+                            <CircleParking className="w-3.5 h-3.5 text-amber-400" /> Inicia parqueo en carril
                           </span>
                         ) : ev.tipoRegistro === 'parqueo_termina' ? (
                           <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold">
-                            <span>✅</span> Fin parqueo (Reanuda)
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> Fin parqueo (Reanuda)
                           </span>
                         ) : (
                           // Peatón
                           ev.categoriaSalida === 'cebra' ? (
-                            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-emerald-500/10 text-emerald-300 font-semibold">
-                              <span>🦓</span> Por cebra
+                            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 font-semibold">
+                              <Footprints className="w-3.5 h-3.5 text-emerald-400" /> Por cebra
                             </span>
                           ) : ev.categoriaSalida === 'fuera_cebra' ? (
-                            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-amber-500/10 text-amber-300 font-semibold">
+                            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-amber-500/10 text-amber-300 border border-amber-500/20 font-semibold">
                               <TriangleAlert className="w-3.5 h-3.5 text-amber-400" /> Fuera de cebra
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-slate-700 text-slate-300 font-semibold">
-                              Por andén
+                            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-slate-700 text-slate-300 font-semibold">
+                              <Footprints className="w-3.5 h-3.5 text-slate-400" /> Por andén
                             </span>
                           )
                         )}
@@ -625,9 +632,9 @@ export const EventosTablaCRUD: React.FC<EventosTablaCRUDProps> = ({
                     }}
                     className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white font-medium focus:outline-none focus:border-blue-500"
                   >
-                    <option value="verde">🟢 Verde (0-18s) - Respeta</option>
-                    <option value="amarillo">🟡 Amarillo (18-21s / 93-96s) - Precaución</option>
-                    <option value="rojo">🔴 Rojo (21-93s) - Se vuela / Infracción</option>
+                    <option value="verde">Verde (0-18s) - Respeta</option>
+                    <option value="amarillo">Amarillo (18-21s / 93-96s) - Precaución</option>
+                    <option value="rojo">Rojo (21-93s) - Se vuela / Infracción</option>
                   </select>
                 </div>
               )}

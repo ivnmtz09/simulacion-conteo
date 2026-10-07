@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import type { SesionConteo, EventoConteo } from '../types/conteo';
 import { TIPOS_VEHICULOS } from '../types/conteo';
+import { VehiculoIcono } from './VehiculoIcono';
 import { db, doc, updateDoc, deleteDoc } from '../lib/firebase';
 
 interface PapeleraSesionesProps {
@@ -161,9 +162,9 @@ export const PapeleraSesiones: React.FC<PapeleraSesionesProps> = ({
                       return (
                         <span
                           key={t}
-                          className="text-[10px] font-semibold px-2 py-0.5 rounded-md border bg-slate-800 border-slate-700 text-slate-400 flex items-center gap-1"
+                          className="text-[10px] font-semibold px-2 py-0.5 rounded-md border bg-slate-800 border-slate-700 text-slate-400 flex items-center gap-1.5"
                         >
-                          {info && <span className="text-xs">{info.emoji}</span>}
+                          <VehiculoIcono tipo={t} className="w-3.5 h-3.5" />
                           <span>{info?.nombre || t}</span>
                         </span>
                       );

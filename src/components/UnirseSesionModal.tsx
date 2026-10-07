@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { X, CheckSquare, Square, Users, Lock, Check, AlertCircle } from 'lucide-react';
+import { X, CheckSquare, Square, Users, Check, AlertCircle, UserPlus, Info } from 'lucide-react';
 import type { TipoVehiculo, SesionConteo } from '../types/conteo';
 import { TIPOS_VEHICULOS, LISTA_TIPOS_VEHICULOS } from '../types/conteo';
 import { db, doc, updateDoc, onSnapshot } from '../lib/firebase';
+import { VehiculoIcono } from './VehiculoIcono';
 
 interface UnirseSesionModalProps {
   abierto: boolean;
@@ -12,16 +13,32 @@ interface UnirseSesionModalProps {
   onUnirseExitoso: (sesionActualizada: SesionConteo) => void;
 }
 
+const parseAsignados = (asignadoStr?: string): string[] => {
+  if (!asignadoStr) return [];
+  return asignadoStr
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+};
+
 const obtenerTiposIniciales = (sesion: SesionConteo, usuarioActual: string): TipoVehiculo[] => {
   const asignaciones = sesion.asignaciones || {};
-  const misTipos = LISTA_TIPOS_VEHICULOS.filter(
-    (t) => asignaciones[t] === usuarioActual
-  );
-  if (misTipos.length === 0) {
-    const primerLibre = LISTA_TIPOS_VEHICULOS.find((t) => !asignaciones[t]);
-    return primerLibre ? [primerLibre] : [];
-  }
-  return misTipos;
+  // Si el usuario ya tenía asignaciones previas en esta sesión
+  const misTipos = LISTA_TIPOS_VEHICULOS.filter((t) => {
+    const usuarios = parseAsignados(asignaciones[t]);
+    return usuarios.some((u) => u.toLowerCase() === usuarioActual.toLowerCase());
+  });
+  if (misTipos.length > 0) return misTipos;
+
+  // Si no tenía, sugerir el primer tipo monitoreado libre
+  const tiposMonitoreados = sesion.tiposSeleccionados?.length
+    ? sesion.tiposSeleccionados
+    : LISTA_TIPOS_VEHICULOS;
+  const primerLibre = tiposMonitoreados.find((t) => parseAsignados(asignaciones[t]).length === 0);
+  if (primerLibre) return [primerLibre];
+
+  // Si todos están asignados, sugerir el primero para co-conteo
+  return tiposMonitoreados.length > 0 ? [tiposMonitoreados[0]] : ['moto'];
 };
 
 export const UnirseSesionModal: React.FC<UnirseSesionModalProps> = ({
@@ -64,7 +81,7 @@ const UnirseSesionDialog: React.FC<UnirseSesionDialogProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
 
-  // Escuchar la sesión en tiempo real para que las asignaciones tomadas por otros aparezcan inmediatamente
+  // Escuchar la sesión en tiempo real para reflejar asignaciones colaborativas en vivo
   useEffect(() => {
     try {
       const unsub = onSnapshot(doc(db, 'sesiones', sesion.id), (docSnap) => {
@@ -75,15 +92,7 @@ const UnirseSesionDialog: React.FC<UnirseSesionDialogProps> = ({
             ...data
           };
           setSesionViva(actualizada);
-
-          // Si otro integrante tomó un rol que teníamos seleccionado, desmarcarlo reactivamente
-          const asignacionesActuales = data.asignaciones || {};
-          setTiposElegidos((prev) =>
-            prev.filter((tipo) => {
-              const asignadoA = asignacionesActuales[tipo];
-              return !asignadoA || asignadoA === usuarioActual;
-            })
-          );
+          // Permitir co-conteo: no desmarcamos agresivamente las selecciones del usuario
         }
       });
       return () => unsub();
@@ -94,13 +103,8 @@ const UnirseSesionDialog: React.FC<UnirseSesionDialogProps> = ({
 
   const asignaciones = sesionViva.asignaciones || {};
 
+  // Toggle sin bloqueos: el usuario siempre puede seleccionar libres o co-contar
   const toggleTipo = (tipo: TipoVehiculo) => {
-    const asignadoA = asignaciones[tipo];
-    // Si ya está asignado a otro compañero, no permitir toggle
-    if (asignadoA && asignadoA !== usuarioActual) {
-      return;
-    }
-
     if (tiposElegidos.includes(tipo)) {
       setTiposElegidos(tiposElegidos.filter((t) => t !== tipo));
     } else {
@@ -108,10 +112,15 @@ const UnirseSesionDialog: React.FC<UnirseSesionDialogProps> = ({
     }
   };
 
+  const seleccionarTodosLibres = () => {
+    const libres = LISTA_TIPOS_VEHICULOS.filter((t) => parseAsignados(asignaciones[t]).length === 0);
+    setTiposElegidos(Array.from(new Set([...tiposElegidos, ...libres])));
+  };
+
   const handleGuardar = async (e: React.FormEvent) => {
     e.preventDefault();
     if (tiposElegidos.length === 0) {
-      setError('Debes seleccionar al menos un tipo de vehículo para contar en esta sesión.');
+      setError('Debes seleccionar al menos un tipo de vehículo o peatón para contar.');
       return;
     }
 
@@ -119,40 +128,43 @@ const UnirseSesionDialog: React.FC<UnirseSesionDialogProps> = ({
     setGuardando(true);
 
     try {
-      // Construir mapa de asignaciones actualizado
+      // 1. Construir mapa de asignaciones actualizado permitiendo co-conteo
       const nuevasAsignaciones: Partial<Record<TipoVehiculo, string>> = {};
 
-      // Conservar asignaciones de los demás integrantes
-      Object.entries(asignaciones).forEach(([t, u]) => {
-        if (u !== usuarioActual) {
-          nuevasAsignaciones[t as TipoVehiculo] = u;
+      LISTA_TIPOS_VEHICULOS.forEach((tipo) => {
+        const asignadosOriginales = parseAsignados(asignaciones[tipo]);
+        // Remover al usuario actual para recalcular con su selección actual
+        const sinMi = asignadosOriginales.filter((u) => u.toLowerCase() !== usuarioActual.toLowerCase());
+        const elegidoPorMi = tiposElegidos.includes(tipo);
+
+        const finalAsignados = elegidoPorMi ? [...sinMi, usuarioActual] : sinMi;
+        if (finalAsignados.length > 0) {
+          nuevasAsignaciones[tipo] = finalAsignados.join(', ');
         }
       });
 
-      // Asignar los nuevos tipos elegidos por este usuario
-      tiposElegidos.forEach((t) => {
-        nuevasAsignaciones[t] = usuarioActual;
-      });
-
-      // Actualizar lista de participantes
+      // 2. Participantes: agregar usuarioActual sin duplicados
       const participantesPrevios = sesionViva.participantes || [sesionViva.usuario];
       const nuevosParticipantes = Array.from(new Set([...participantesPrevios, usuarioActual]));
 
-      // Todos los tipos activos en la sesión
-      const nuevosTiposSeleccionados = Object.keys(nuevasAsignaciones) as TipoVehiculo[];
+      // 3. PRESERVAR tiposSeleccionados originales de la sesión + los tipos elegidos
+      const sessionTipos = sesionViva.tiposSeleccionados && sesionViva.tiposSeleccionados.length > 0
+        ? sesionViva.tiposSeleccionados
+        : LISTA_TIPOS_VEHICULOS;
+      const tiposPreservados = Array.from(new Set([...sessionTipos, ...tiposElegidos]));
 
       const docRef = doc(db, 'sesiones', sesionViva.id);
       await updateDoc(docRef, {
         asignaciones: nuevasAsignaciones,
         participantes: nuevosParticipantes,
-        tiposSeleccionados: nuevosTiposSeleccionados
+        tiposSeleccionados: tiposPreservados
       });
 
       const sesionActualizada: SesionConteo = {
         ...sesionViva,
         asignaciones: nuevasAsignaciones,
         participantes: nuevosParticipantes,
-        tiposSeleccionados: nuevosTiposSeleccionados
+        tiposSeleccionados: tiposPreservados
       };
 
       onUnirseExitoso(sesionActualizada);
@@ -160,14 +172,26 @@ const UnirseSesionDialog: React.FC<UnirseSesionDialogProps> = ({
     } catch (err) {
       console.error('Error al unirse a la sesión:', err);
       // Fallback local
-      const nuevasAsignaciones: Partial<Record<TipoVehiculo, string>> = { ...asignaciones };
-      tiposElegidos.forEach((t) => {
-        nuevasAsignaciones[t] = usuarioActual;
+      const nuevasAsignaciones: Partial<Record<TipoVehiculo, string>> = {};
+      LISTA_TIPOS_VEHICULOS.forEach((tipo) => {
+        const asignadosOriginales = parseAsignados(asignaciones[tipo]);
+        const sinMi = asignadosOriginales.filter((u) => u.toLowerCase() !== usuarioActual.toLowerCase());
+        const finalAsignados = tiposElegidos.includes(tipo) ? [...sinMi, usuarioActual] : sinMi;
+        if (finalAsignados.length > 0) {
+          nuevasAsignaciones[tipo] = finalAsignados.join(', ');
+        }
       });
+
+      const sessionTipos = sesion.tiposSeleccionados && sesion.tiposSeleccionados.length > 0
+        ? sesion.tiposSeleccionados
+        : LISTA_TIPOS_VEHICULOS;
+      const tiposPreservados = Array.from(new Set([...sessionTipos, ...tiposElegidos]));
+
       const sesionActualizada: SesionConteo = {
         ...sesion,
         asignaciones: nuevasAsignaciones,
-        participantes: Array.from(new Set([...(sesion.participantes || []), usuarioActual]))
+        participantes: Array.from(new Set([...(sesion.participantes || []), usuarioActual])),
+        tiposSeleccionados: tiposPreservados
       };
       onUnirseExitoso(sesionActualizada);
       onCerrar();
@@ -182,7 +206,7 @@ const UnirseSesionDialog: React.FC<UnirseSesionDialogProps> = ({
         <button
           onClick={onCerrar}
           disabled={guardando}
-          className="absolute top-4 right-4 text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition"
+          className="absolute top-4 right-4 text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition cursor-pointer"
         >
           <X className="w-5 h-5" />
         </button>
@@ -193,10 +217,10 @@ const UnirseSesionDialog: React.FC<UnirseSesionDialogProps> = ({
             <span>Sesión Compartida del Equipo</span>
           </div>
           <h2 className="text-lg sm:text-xl font-bold text-white">
-            {sesion.nombre}
+            {sesionViva.nombre}
           </h2>
           <p className="text-xs text-slate-400 mt-1">
-            Creada por <strong className="text-slate-300">{sesion.usuario}</strong>. Selecciona qué vas a contar tú sin duplicar roles con tus compañeros.
+            Creada por <strong className="text-slate-300">{sesionViva.usuario.split('@')[0]}</strong>. Selecciona vehículos libres o súmate en co-conteo como apoyo.
           </p>
         </div>
 
@@ -207,73 +231,114 @@ const UnirseSesionDialog: React.FC<UnirseSesionDialogProps> = ({
           </div>
         )}
 
+        {/* Banner explicativo del co-conteo */}
+        <div className="mb-3 p-2.5 rounded-xl bg-blue-500/10 border border-blue-500/20 text-[11px] text-blue-300 flex items-start gap-2">
+          <Info className="w-4 h-4 shrink-0 text-blue-400 mt-0.5" />
+          <p>
+            Puedes tomar vehículos libres o apoyar en <strong>Co-conteo</strong> a compañeros en carriles con alto flujo vehicular.
+          </p>
+        </div>
+
         <form onSubmit={handleGuardar} className="space-y-4">
           <div className="space-y-2">
-            <div className="text-xs font-bold text-slate-300">
-              Disponibilidad de tipos de vehículo:
+            <div className="flex items-center justify-between text-xs font-bold text-slate-300">
+              <span>Roles y Asignaciones del Equipo:</span>
+              <button
+                type="button"
+                onClick={seleccionarTodosLibres}
+                className="text-[11px] text-emerald-400 hover:text-emerald-300 underline font-normal"
+              >
+                Tomar libres
+              </button>
             </div>
 
-            <div className="grid grid-cols-1 gap-2">
+            <div className="grid grid-cols-1 gap-2 max-h-[380px] overflow-y-auto pr-1">
               {LISTA_TIPOS_VEHICULOS.map((tipo) => {
                 const info = TIPOS_VEHICULOS[tipo];
-                const asignadoA = asignaciones[tipo];
-                const estaTomadoPorOtro = Boolean(asignadoA && asignadoA !== usuarioActual);
+                const asignados = parseAsignados(asignaciones[tipo]);
+                const otrosAsignados = asignados.filter(
+                  (u) => u.toLowerCase() !== usuarioActual.toLowerCase()
+                );
                 const seleccionadoPorMi = tiposElegidos.includes(tipo);
+                const estaLibre = asignados.length === 0;
+                const estaTomadoPorOtros = otrosAsignados.length > 0;
 
                 return (
                   <div
                     key={tipo}
-                    onClick={() => !estaTomadoPorOtro && toggleTipo(tipo)}
-                    className={`p-3 rounded-2xl border flex items-center justify-between gap-3 transition ${
-                      estaTomadoPorOtro
-                        ? 'bg-slate-950/60 border-slate-800 opacity-60 cursor-not-allowed'
-                        : seleccionadoPorMi
-                        ? 'bg-slate-800 border-blue-500/60 shadow-md shadow-blue-500/10 cursor-pointer'
-                        : 'bg-slate-900/60 border-slate-800 hover:border-slate-700 cursor-pointer'
+                    onClick={() => toggleTipo(tipo)}
+                    className={`p-3 rounded-2xl border flex items-center justify-between gap-3 transition cursor-pointer ${
+                      seleccionadoPorMi
+                        ? estaTomadoPorOtros
+                          ? 'bg-indigo-950/40 border-indigo-500/60 shadow-md shadow-indigo-500/10'
+                          : 'bg-slate-800 border-blue-500/60 shadow-md shadow-blue-500/10'
+                        : 'bg-slate-900/60 border-slate-800 hover:border-slate-700'
                     }`}
                   >
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
                       <div className="text-blue-400 shrink-0">
-                        {estaTomadoPorOtro ? (
-                          <Lock className="w-4 h-4 text-slate-500" />
-                        ) : seleccionadoPorMi ? (
+                        {seleccionadoPorMi ? (
                           <CheckSquare className="w-4 h-4 text-blue-400" />
                         ) : (
                           <Square className="w-4 h-4 text-slate-500" />
                         )}
                       </div>
 
-                      <span className="text-2xl select-none leading-none">
-                        {info.emoji}
-                      </span>
+                      <div className="w-8 h-8 rounded-xl bg-slate-800 flex items-center justify-center shrink-0 border border-slate-700/60">
+                        <VehiculoIcono tipo={tipo} className={`w-4 h-4 ${info.color}`} />
+                      </div>
 
-                      <div>
-                        <div className="flex items-center gap-2">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5 flex-wrap">
                           <span className={`text-sm font-bold ${info.color}`}>
                             {info.nombre}
                           </span>
                         </div>
-                        <p className="text-[11px] text-slate-400 leading-none mt-0.5">
+                        <p className="text-[11px] text-slate-400 leading-tight truncate">
                           {info.subtitulo}
                         </p>
                       </div>
                     </div>
 
-                    {/* Estado de asignación */}
-                    <div>
-                      {estaTomadoPorOtro ? (
-                        <div className="text-right">
-                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-300 border border-rose-500/30">
-                            Ya lo cuenta: {asignadoA?.split('@')[0]}
+                    {/* Estado de asignación y co-conteo */}
+                    <div className="shrink-0 text-right">
+                      {estaLibre ? (
+                        seleccionadoPorMi ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                            <Check className="w-3 h-3" />
+                            Asignado a ti
                           </span>
-                        </div>
-                      ) : seleccionadoPorMi ? (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30">
-                          Asignado a ti
-                        </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                            Libre / Disponible
+                          </span>
+                        )
+                      ) : estaTomadoPorOtros ? (
+                        seleccionadoPorMi ? (
+                          <div className="flex flex-col items-end gap-0.5">
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/40">
+                              <UserPlus className="w-3 h-3" />
+                              Co-conteo / Apoyo
+                            </span>
+                            <span className="text-[9px] text-slate-400 truncate max-w-[140px]" title={otrosAsignados.join(', ')}>
+                              Con {otrosAsignados.map((u) => u.split('@')[0]).join(', ')}
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col items-end gap-0.5">
+                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                              Cuenta: {otrosAsignados.map((u) => u.split('@')[0]).join(', ')}
+                            </span>
+                            <span className="text-[9px] text-blue-400 hover:underline">
+                              + Co-conteo / Apoyo
+                            </span>
+                          </div>
+                        )
                       ) : (
-                        <span className="text-[10px] font-semibold text-emerald-400">
-                          Disponible
+                        // Solo estaba asignado al usuario actual
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                          <Check className="w-3 h-3" />
+                          Asignado a ti
                         </span>
                       )}
                     </div>
@@ -283,19 +348,19 @@ const UnirseSesionDialog: React.FC<UnirseSesionDialogProps> = ({
             </div>
           </div>
 
-          <div className="pt-2 flex items-center justify-end gap-2">
+          <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-800">
             <button
               type="button"
               onClick={onCerrar}
               disabled={guardando}
-              className="touch-btn px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-400 hover:text-white bg-slate-800 transition"
+              className="touch-btn px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-400 hover:text-white bg-slate-800 transition cursor-pointer"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={guardando}
-              className="touch-btn px-6 py-2.5 rounded-xl font-bold text-xs sm:text-sm bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-500/20 flex items-center gap-2 transition disabled:opacity-50"
+              className="touch-btn px-6 py-2.5 rounded-xl font-bold text-xs sm:text-sm bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-500/20 flex items-center gap-2 transition disabled:opacity-50 cursor-pointer"
             >
               <Check className="w-4 h-4" />
               <span>{guardando ? 'Actualizando...' : 'Confirmar Roles y Entrar'}</span>

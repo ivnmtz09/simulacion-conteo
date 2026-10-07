@@ -3,10 +3,11 @@ import {
   RotateCcw,
   AlertTriangle,
   CheckCircle2,
-  Radio,
   Clock,
   Info,
-  X
+  X,
+  Disc,
+  Play
 } from 'lucide-react';
 import type { SesionConteo } from '../types/conteo';
 import {
@@ -103,7 +104,7 @@ export const SemaforoCronometro: React.FC<SemaforoCronometroProps> = ({
             <span
               className={`w-3.5 h-3.5 rounded-full transition-all duration-300 ${
                 estado.fase === 'rojo'
-                  ? 'bg-rose-500 shadow-md shadow-rose-500/80 ring-2 ring-rose-400'
+                  ? 'bg-rose-500 shadow-[0_0_12px_rgba(244,63,94,0.9)] ring-2 ring-rose-400'
                   : 'bg-rose-950/80 opacity-40'
               }`}
               title="Luz Roja (72s)"
@@ -111,7 +112,7 @@ export const SemaforoCronometro: React.FC<SemaforoCronometroProps> = ({
             <span
               className={`w-3.5 h-3.5 rounded-full transition-all duration-300 ${
                 estado.fase === 'amarillo'
-                  ? 'bg-amber-400 shadow-md shadow-amber-400/80 ring-2 ring-amber-300'
+                  ? 'bg-amber-400 shadow-[0_0_12px_rgba(245,158,11,0.9)] ring-2 ring-amber-300'
                   : 'bg-amber-950/80 opacity-40'
               }`}
               title="Luz Amarilla (3s post-verde / 3s pre-verde)"
@@ -119,7 +120,7 @@ export const SemaforoCronometro: React.FC<SemaforoCronometroProps> = ({
             <span
               className={`w-3.5 h-3.5 rounded-full transition-all duration-300 ${
                 estado.fase === 'verde'
-                  ? 'bg-emerald-400 shadow-md shadow-emerald-400/80 ring-2 ring-emerald-300'
+                  ? 'bg-emerald-400 shadow-[0_0_12px_rgba(16,185,129,0.9)] ring-2 ring-emerald-300'
                   : 'bg-emerald-950/80 opacity-40'
               }`}
               title="Luz Verde (18s)"
@@ -162,8 +163,8 @@ export const SemaforoCronometro: React.FC<SemaforoCronometroProps> = ({
               disabled={guardando}
               className="touch-btn text-xs font-black px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white border border-emerald-400 shadow-lg shadow-emerald-600/30 flex items-center gap-2 transition cursor-pointer active:scale-95 animate-pulse"
             >
-              <Radio className="w-4 h-4" />
-              <span>{guardando ? 'Sincronizando...' : '🟢 Iniciar ciclo en Verde'}</span>
+              <Play className="w-4 h-4 fill-current" />
+              <span>{guardando ? 'Sincronizando...' : 'Iniciar ciclo en Verde'}</span>
             </button>
           )}
         </div>
@@ -183,24 +184,32 @@ export const SemaforoCronometro: React.FC<SemaforoCronometroProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {/* Panel de Fase Actual */}
             <div
-              className={`p-3 rounded-2xl border flex items-center justify-between transition-all ${
+              className={`p-3 rounded-2xl border flex items-center justify-between transition-all duration-500 ${
                 estado.fase === 'verde'
-                  ? 'bg-emerald-950/40 border-emerald-500/50 shadow-md shadow-emerald-900/20'
+                  ? 'bg-emerald-950/40 border-emerald-500/50 shadow-[0_0_20px_rgba(16,185,129,0.25)]'
                   : estado.fase === 'amarillo'
-                  ? 'bg-amber-950/40 border-amber-500/50 shadow-md shadow-amber-900/20'
-                  : 'bg-rose-950/40 border-rose-500/50 shadow-md shadow-rose-900/20'
+                  ? 'bg-amber-950/40 border-amber-500/50 shadow-[0_0_20px_rgba(245,158,11,0.25)]'
+                  : 'bg-rose-950/40 border-rose-500/50 shadow-[0_0_20px_rgba(244,63,94,0.25)]'
               }`}
             >
               <div className="flex items-center gap-3">
-                <span className="text-2xl select-none">
-                  {estado.fase === 'verde' ? '🟢' : estado.fase === 'amarillo' ? '🟡' : '🔴'}
-                </span>
+                <div
+                  className={`w-10 h-10 rounded-2xl flex items-center justify-center transition-all ${
+                    estado.fase === 'verde'
+                      ? 'bg-emerald-500/20 text-emerald-400 shadow-[0_0_16px_rgba(16,185,129,0.5)] ring-1 ring-emerald-500/40'
+                      : estado.fase === 'amarillo'
+                      ? 'bg-amber-500/20 text-amber-400 shadow-[0_0_16px_rgba(245,158,11,0.5)] ring-1 ring-amber-500/40'
+                      : 'bg-rose-500/20 text-rose-400 shadow-[0_0_16px_rgba(244,63,94,0.5)] ring-1 ring-rose-500/40'
+                  }`}
+                >
+                  <Disc className="w-5 h-5 animate-pulse" />
+                </div>
                 <div>
                   <div className="text-[10px] uppercase font-bold tracking-wider text-slate-400">
                     Fase en Curso
                   </div>
                   <div
-                    className={`text-base font-black uppercase ${
+                    className={`text-base font-black uppercase tracking-wide ${
                       estado.fase === 'verde'
                         ? 'text-emerald-300'
                         : estado.fase === 'amarillo'
@@ -372,8 +381,8 @@ export const SemaforoCronometro: React.FC<SemaforoCronometroProps> = ({
             disabled={guardando}
             className="touch-btn inline-flex items-center gap-2 px-6 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs sm:text-sm shadow-lg shadow-emerald-600/30 border border-emerald-400 transition active:scale-95 cursor-pointer"
           >
-            <Radio className="w-4 h-4" />
-            <span>{guardando ? 'Sincronizando...' : '🟢 Sincronizar en inicio de VERDE'}</span>
+            <Play className="w-4 h-4 fill-current" />
+            <span>{guardando ? 'Sincronizando...' : 'Sincronizar en inicio de VERDE'}</span>
           </button>
         </div>
       )}
@@ -404,8 +413,11 @@ export const SemaforoCronometro: React.FC<SemaforoCronometroProps> = ({
               <p>
                 Presiona <strong>Confirmar</strong> en el instante exacto en que el semáforo real cambie a <strong>VERDE</strong>.
               </p>
-              <p className="text-slate-400 text-[11px]">
-                ℹ️ Esto actualizará el tiempo cero para todos los miembros del equipo en tiempo real. Los cruces y eventos que ya se hayan guardado <strong>mantendrán intactos sus datos</strong> calculados originalmente.
+              <p className="text-slate-400 text-[11px] flex items-start gap-1.5">
+                <Info className="w-3.5 h-3.5 text-blue-400 shrink-0 mt-0.5" />
+                <span>
+                  Esto actualizará el tiempo cero para todos los miembros del equipo en tiempo real. Los cruces y eventos que ya se hayan guardado <strong>mantendrán intactos sus datos</strong> calculados originalmente.
+                </span>
               </p>
             </div>
 
@@ -422,9 +434,10 @@ export const SemaforoCronometro: React.FC<SemaforoCronometroProps> = ({
                 type="button"
                 onClick={handleSincronizar}
                 disabled={guardando}
-                className="touch-btn px-5 py-2 rounded-xl text-xs sm:text-sm font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/20 border border-emerald-400 transition"
+                className="touch-btn px-5 py-2 rounded-xl text-xs sm:text-sm font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/20 border border-emerald-400 transition flex items-center gap-2"
               >
-                {guardando ? 'Guardando...' : '🟢 Confirmar nuevo inicio en VERDE'}
+                <Play className="w-3.5 h-3.5 fill-current" />
+                <span>{guardando ? 'Guardando...' : 'Confirmar nuevo inicio en VERDE'}</span>
               </button>
             </div>
           </div>

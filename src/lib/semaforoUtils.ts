@@ -137,29 +137,37 @@ export function obtenerInfoFase(fase?: FaseSemaforo | null) {
       return {
         etiqueta: 'Verde',
         colorTexto: 'text-emerald-400',
-        bgBadge: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40',
-        emoji: '🟢'
+        bgBadge: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
+        glowClass: 'shadow-[0_0_15px_rgba(16,185,129,0.35)]',
+        borderClass: 'border-emerald-500/40',
+        dotClass: 'bg-emerald-500'
       };
     case 'amarillo':
       return {
         etiqueta: 'Amarillo',
         colorTexto: 'text-amber-400',
-        bgBadge: 'bg-amber-500/20 text-amber-300 border-amber-500/40',
-        emoji: '🟡'
+        bgBadge: 'bg-amber-500/10 text-amber-400 border-amber-500/30',
+        glowClass: 'shadow-[0_0_15px_rgba(245,158,11,0.35)]',
+        borderClass: 'border-amber-500/40',
+        dotClass: 'bg-amber-400'
       };
     case 'rojo':
       return {
         etiqueta: 'Rojo',
         colorTexto: 'text-rose-400',
-        bgBadge: 'bg-rose-500/20 text-rose-300 border-rose-500/40',
-        emoji: '🔴'
+        bgBadge: 'bg-rose-500/10 text-rose-400 border-rose-500/30',
+        glowClass: 'shadow-[0_0_15px_rgba(244,63,94,0.35)]',
+        borderClass: 'border-rose-500/40',
+        dotClass: 'bg-rose-500'
       };
     default:
       return {
         etiqueta: 'Sin Sincronizar',
         colorTexto: 'text-slate-400',
-        bgBadge: 'bg-slate-700/40 text-slate-300 border-slate-600/40',
-        emoji: '⚪'
+        bgBadge: 'bg-slate-800/40 text-slate-400 border-slate-700/40',
+        glowClass: 'shadow-none',
+        borderClass: 'border-slate-800',
+        dotClass: 'bg-slate-600'
       };
   }
 }

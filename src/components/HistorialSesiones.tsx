@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import {
   History,
-  Play,
   FileSpreadsheet,
   Download,
   Trash2,
@@ -16,6 +15,7 @@ import type { SesionConteo, EventoConteo } from '../types/conteo';
 import { TIPOS_VEHICULOS } from '../types/conteo';
 import { exportarEventosXLSX, exportarEventosCSV } from '../lib/exportUtils';
 import { db, doc, updateDoc } from '../lib/firebase';
+import { VehiculoIcono } from './VehiculoIcono';
 
 interface HistorialSesionesProps {
   sesiones: SesionConteo[];
@@ -24,6 +24,7 @@ interface HistorialSesionesProps {
   onSeleccionarSesion: (sesion: SesionConteo) => void;
   onCerrarSesionActiva: () => Promise<void>;
   onEliminarSesionLocal?: (id: string) => void;
+  onAbrirUnirse?: (sesion: SesionConteo) => void;
 }
 
 export const HistorialSesiones: React.FC<HistorialSesionesProps> = ({
@@ -32,7 +33,8 @@ export const HistorialSesiones: React.FC<HistorialSesionesProps> = ({
   todosLosEventos,
   onSeleccionarSesion,
   onCerrarSesionActiva,
-  onEliminarSesionLocal
+  onEliminarSesionLocal,
+  onAbrirUnirse
 }) => {
   const [eliminandoId, setEliminandoId] = useState<string | null>(null);
 
@@ -61,7 +63,7 @@ export const HistorialSesiones: React.FC<HistorialSesionesProps> = ({
 
     setEliminandoId(sesion.id);
 
-    // 1. Eliminación optimista inmediata en UI (0 ms)
+    // 1. Eliminación optimista inmediata en UI
     if (onEliminarSesionLocal) {
       onEliminarSesionLocal(sesion.id);
     }
@@ -103,7 +105,7 @@ export const HistorialSesiones: React.FC<HistorialSesionesProps> = ({
             <span>Historial de Sesiones de Aforo</span>
           </h2>
           <p className="text-xs text-slate-400 mt-0.5">
-            Consulta sesiones anteriores, activa una para continuar conteo o descarga reportes VISSIM.
+            Consulta sesiones anteriores, únete con tus roles a sesiones abiertas o descarga reportes VISSIM.
           </p>
         </div>
       </div>
@@ -118,6 +120,7 @@ export const HistorialSesiones: React.FC<HistorialSesionesProps> = ({
             const eventosDeEsta = todosLosEventos.filter((e) => e.sesionId === s.id && !e.enPapelera);
             const esActiva = s.id === sesionActivaId;
             const esAbierta = (s.activa || s.estado === 'abierta') && !s.enPapelera;
+            const participantes = s.participantes || [s.usuario];
 
             return (
               <div
@@ -160,9 +163,14 @@ export const HistorialSesiones: React.FC<HistorialSesionesProps> = ({
                         {s.ubicacion}
                       </span>
                     )}
-                    <span className="flex items-center gap-1">
+                    <span className="flex items-center gap-1" title={`Participantes: ${participantes.join(', ')}`}>
                       <Users className="w-3.5 h-3.5 text-slate-500" />
-                      {s.usuario.split('@')[0]}
+                      <span>{s.usuario.split('@')[0]}</span>
+                      {participantes.length > 1 && (
+                        <span className="text-[10px] text-emerald-400 font-bold">
+                          (+{participantes.length - 1})
+                        </span>
+                      )}
                     </span>
                     <span className="flex items-center gap-1 font-mono font-bold text-slate-300">
                       <Clock className="w-3.5 h-3.5 text-blue-400" />
@@ -170,7 +178,7 @@ export const HistorialSesiones: React.FC<HistorialSesionesProps> = ({
                     </span>
                   </div>
 
-                  {/* Badges de tipos seleccionados */}
+                  {/* Badges de tipos seleccionados con VehiculoIcono (cero emojis) */}
                   <div className="flex items-center gap-1.5 flex-wrap pt-1">
                     <span className="text-[11px] text-slate-500 font-semibold">Tipos:</span>
                     {(s.tiposSeleccionados || []).map((t) => {
@@ -178,11 +186,11 @@ export const HistorialSesiones: React.FC<HistorialSesionesProps> = ({
                       return (
                         <span
                           key={t}
-                          className={`text-[10px] font-semibold px-2 py-0.5 rounded-md border flex items-center gap-1 ${
+                          className={`text-[10px] font-semibold px-2 py-0.5 rounded-md border flex items-center gap-1.5 ${
                             info ? `${info.badgeBg} ${info.color} ${info.badgeBorder}` : 'bg-slate-800 text-slate-300'
                           }`}
                         >
-                          {info && <span className="text-xs">{info.emoji}</span>}
+                          <VehiculoIcono tipo={t} className="w-3.5 h-3.5" />
                           <span>{info?.nombre || t}</span>
                         </span>
                       );
@@ -190,7 +198,7 @@ export const HistorialSesiones: React.FC<HistorialSesionesProps> = ({
                   </div>
                 </div>
 
-                {/* Acciones explícitas de la sesión (sin interferir entre ellas) */}
+                {/* Acciones explícitas de la sesión */}
                 <div
                   className="flex items-center gap-2 self-end sm:self-center shrink-0"
                   onClick={(e) => e.stopPropagation()}
@@ -231,13 +239,17 @@ export const HistorialSesiones: React.FC<HistorialSesionesProps> = ({
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        onSeleccionarSesion(s);
+                        if (onAbrirUnirse) {
+                          onAbrirUnirse(s);
+                        } else {
+                          onSeleccionarSesion(s);
+                        }
                       }}
                       className="touch-btn text-xs font-bold px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white flex items-center gap-1.5 shadow-sm cursor-pointer"
-                      title="Unirse o continuar conteo en esta sesión abierta"
+                      title="Unirse o seleccionar tus roles en esta sesión abierta"
                     >
-                      <Play className="w-3 h-3 fill-current" />
-                      <span>Retomar</span>
+                      <Users className="w-3.5 h-3.5" />
+                      <span>Retomar / Unirse</span>
                     </button>
                   ) : (
                     <button

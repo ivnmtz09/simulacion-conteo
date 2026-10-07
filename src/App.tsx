@@ -27,6 +27,7 @@ import { PapeleraSesiones } from './components/PapeleraSesiones';
 import { SemaforoCronometro } from './components/SemaforoCronometro';
 import { SplashScreen } from './components/SplashScreen';
 import { NotFoundPage } from './components/NotFoundPage';
+import { VehiculoIcono } from './components/VehiculoIcono';
 import { exportarEventosXLSX, exportarEventosCSV } from './lib/exportUtils';
 import { esCorreoAutorizado } from './config/equipo';
 import { PlusCircle, Activity, StopCircle, Users, MapPin, Clock, Eye } from 'lucide-react';
@@ -338,17 +339,24 @@ export default function App() {
     exportarEventosCSV(sesionActiva, eventos);
   };
 
-  // Roles asignados al usuario actual en la sesión activa
+  // Roles asignados al usuario actual en la sesión activa (soporte co-conteo y asignaciones múltiples)
   const asignaciones = sesionActiva?.asignaciones || {};
-  const misTiposAsignados = LISTA_TIPOS_VEHICULOS.filter(
-    (t) => asignaciones[t] === usuarioActual
-  );
+  const misTiposAsignados = LISTA_TIPOS_VEHICULOS.filter((t) => {
+    const asignado = asignaciones[t];
+    if (!asignado) return false;
+    return asignado
+      .split(',')
+      .map((s) => s.trim().toLowerCase())
+      .includes((usuarioActual || '').toLowerCase());
+  });
 
-  // Fallback si la sesión no posee asignaciones registradas aún
+  // Tipos activos para la visualización del usuario
   const tiposActivosEnSesion: TipoVehiculo[] =
     modoVistaVehiculos === 'todos'
-      ? LISTA_TIPOS_VEHICULOS
-      : (Object.keys(asignaciones).length > 0
+      ? (sesionActiva?.tiposSeleccionados && sesionActiva.tiposSeleccionados.length > 0
+          ? sesionActiva.tiposSeleccionados
+          : LISTA_TIPOS_VEHICULOS)
+      : (misTiposAsignados.length > 0
           ? misTiposAsignados
           : (sesionActiva?.tiposSeleccionados && sesionActiva.tiposSeleccionados.length > 0
               ? sesionActiva.tiposSeleccionados
@@ -408,6 +416,15 @@ export default function App() {
         }}
         onExportarXLSX={handleExportarXLSX}
         onExportarCSV={handleExportarCSV}
+        sesionesActivasCount={sesionesActivasEquipo.length}
+        onAbrirUnirseOVerSesiones={() => {
+          if (sesionesActivasEquipo.length === 1) {
+            setSesionParaUnirse(sesionesActivasEquipo[0]);
+            setModalUnirseAbierto(true);
+          } else {
+            setVistaActiva('conteo');
+          }
+        }}
       />
 
       {/* Contenido principal según la pestaña activa */}
@@ -474,8 +491,8 @@ export default function App() {
                       {sesionesActivasEquipo.map((s) => {
                         const participantes = s.participantes || [s.usuario];
                         const asignacionesSesion = s.asignaciones || {};
-                        const tiposAsignadosCount = Object.keys(asignacionesSesion).length;
-                        const tiposLibresCount = Math.max(0, 6 - tiposAsignadosCount);
+                        const tiposMonitoreados = s.tiposSeleccionados && s.tiposSeleccionados.length > 0 ? s.tiposSeleccionados : LISTA_TIPOS_VEHICULOS;
+                        const tiposLibresCount = tiposMonitoreados.filter((t) => !asignacionesSesion[t]).length;
 
                         const fechaObj = new Date(s.fechaCreacion);
                         const horaInicio = !isNaN(fechaObj.getTime())
@@ -552,7 +569,7 @@ export default function App() {
                                             : 'bg-blue-500/15 border-blue-500/30 text-blue-300 font-semibold'
                                         }`}
                                       >
-                                        <span>{info.emoji}</span>
+                                        <VehiculoIcono tipo={tipo} className="w-3.5 h-3.5" />
                                         <span className="text-[10px]">{info.nombre}</span>
                                       </span>
                                     );
@@ -777,6 +794,14 @@ export default function App() {
             }}
             onCerrarSesionActiva={handleCerrarSesionActiva}
             onEliminarSesionLocal={handleEliminarSesionLocal}
+            onAbrirUnirse={(s) => {
+              if (!usuarioActual) {
+                setModalAuthAbierto(true);
+                return;
+              }
+              setSesionParaUnirse(s);
+              setModalUnirseAbierto(true);
+            }}
           />
         )}
 

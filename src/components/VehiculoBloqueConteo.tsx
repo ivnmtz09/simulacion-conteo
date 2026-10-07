@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Clock,
   ArrowUp,
@@ -10,11 +10,15 @@ import {
   Timer,
   LogIn,
   AlertCircle,
-  Zap
+  Zap,
+  CircleParking,
+  Disc,
+  X
 } from 'lucide-react';
 import type { TipoVehiculo, EventoConteo, CategoriaSalidaVehiculo, MovimientoGiro, VehiculoEnServidor, FaseSemaforo } from '../types/conteo';
 import { TIPOS_VEHICULOS } from '../types/conteo';
 import { CruceDirectoModal } from './CruceDirectoModal';
+import { VehiculoIcono } from './VehiculoIcono';
 import { db, doc, updateDoc } from '../lib/firebase';
 import { calcularEstadoSemaforo, mapearFaseACategoria } from '../lib/semaforoUtils';
 
@@ -44,6 +48,11 @@ interface UltimoCruceResultado {
   categoria: CategoriaSalidaVehiculo;
 }
 
+interface MensajeToast {
+  accion: string;
+  detalle: string;
+}
+
 export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
   tipo,
   sesionId,
@@ -60,7 +69,12 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
   const [ultimoCruceResultado, setUltimoCruceResultado] = useState<UltimoCruceResultado | null>(null);
   const [animandoEntrada, setAnimandoEntrada] = useState(false);
   const [animandoServidor, setAnimandoServidor] = useState(false);
+  const [animandoUndo, setAnimandoUndo] = useState(false);
+  const [deshaciendo, setDeshaciendo] = useState(false);
+  const [mensajeToast, setMensajeToast] = useState<MensajeToast | null>(null);
   const [modalCruceDirectoAbierto, setModalCruceDirectoAbierto] = useState(false);
+  const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const info = TIPOS_VEHICULOS[tipo];
 
   // Cálculo de eventos válidos guardados en Firestore (excluyendo papelera)
@@ -127,6 +141,21 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
   const movimientosHabilitados = totalSalidas > 0 && totalGiros < totalSalidas;
   const girosPendientes = Math.max(0, totalSalidas - totalGiros);
 
+  // Stack de eventos activos para Deshacer (Undo) multi-nivel
+  const eventosActivos = eventosDelTipo
+    .filter((e) => !e.enPapelera)
+    .sort((a, b) => a.timestampCreacion - b.timestampCreacion);
+
+  const ultimoEvento = eventosActivos.length > 0 ? eventosActivos[eventosActivos.length - 1] : null;
+
+  useEffect(() => {
+    return () => {
+      if (toastTimeoutRef.current) {
+        clearTimeout(toastTimeoutRef.current);
+      }
+    };
+  }, []);
+
   const vibrar = (duracion = 40) => {
     if (typeof window !== 'undefined' && 'navigator' in window && navigator.vibrate) {
       try {
@@ -134,6 +163,46 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
       } catch {
         // Ignorar
       }
+    }
+  };
+
+  const getDescripcionAccion = (evento: EventoConteo): MensajeToast => {
+    switch (evento.tipoRegistro) {
+      case 'salida_cola':
+        return {
+          accion: evento.esFlujoLibre ? 'Cruce directo revertido' : 'Salida revertida',
+          detalle: evento.esFlujoLibre ? 'Vehículo eliminado de salidas' : 'El vehículo vuelve al semáforo'
+        };
+      case 'llega_servidor':
+        return {
+          accion: 'Llegada a semáforo revertida',
+          detalle: 'El vehículo vuelve a la cola'
+        };
+      case 'entrada_cola':
+        return {
+          accion: 'Entrada a cola cancelada',
+          detalle: 'Vehículo eliminado de la cola'
+        };
+      case 'movimiento':
+        return {
+          accion: `Giro ${evento.movimiento ? `(${evento.movimiento}) ` : ''}revertido`.trim(),
+          detalle: 'Se eliminó el último giro registrado'
+        };
+      case 'parqueo_inicia':
+        return {
+          accion: 'Parqueo en carril revertido',
+          detalle: 'Vehículo habilitado nuevamente en cola'
+        };
+      case 'parqueo_termina':
+        return {
+          accion: 'Desmarque de parqueo revertido',
+          detalle: 'Vehículo vuelve al estado parqueado'
+        };
+      default:
+        return {
+          accion: 'Acción revertida',
+          detalle: 'Evento enviado a papelera'
+        };
     }
   };
 
@@ -146,7 +215,6 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
     setAnimandoEntrada(true);
     setTimeout(() => setAnimandoEntrada(false), 250);
 
-    // Guardar evento de entrada a cola en Firestore
     const nuevoEvento: Omit<EventoConteo, 'id'> = {
       sesionId,
       usuario,
@@ -159,7 +227,7 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
     await onRegistrarEvento(nuevoEvento);
   };
 
-  // Marcar vehículo como parqueado en carril (permanece en cola, no puede pasar al semáforo hasta desmarcar)
+  // Marcar vehículo como parqueado en carril
   const handleMarcarParqueado = async () => {
     if (enColaDisponibles <= 0) return;
     vibrar(35);
@@ -175,7 +243,7 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
     await onRegistrarEvento(nuevoEvento);
   };
 
-  // Desmarcar vehículo parqueado (reanuda marcha y queda habilitado nuevamente para avanzar al semáforo)
+  // Desmarcar vehículo parqueado
   const handleDesmarcarParqueado = async () => {
     if (parqueadosEnCola <= 0) return;
     vibrar(35);
@@ -191,7 +259,7 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
     await onRegistrarEvento(nuevoEvento);
   };
 
-  // 2. Llega al servidor (semáforo) — Estrictamente solo si hay vehículos en cola NO parqueados
+  // 2. Llega al servidor (semáforo)
   const handleLlegaServidor = async () => {
     if (enColaDisponibles <= 0) return;
 
@@ -199,7 +267,6 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
     const ahoraMs = Date.now();
     const ahoraIso = new Date(ahoraMs).toISOString();
 
-    // Obtener las entradas de cola que aún no han pasado al servidor
     const horasEntradaConsumidas = new Set(
       llegadasServidor.map((s) => s.horaEntradaCola).filter(Boolean)
     );
@@ -207,7 +274,6 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
       (e) => !horasEntradaConsumidas.has(e.horaEntradaCola || new Date(e.timestampCreacion).toISOString())
     );
 
-    // Los primeros 'parqueadosEnCola' están congelados en la cola; toma el primer vehículo disponible
     const entradaCorresp = entradasPendientes[parqueadosEnCola] || entradasPendientes[0] || entradasCola[llegadasServidor.length];
     const horaEntradaColaIso = entradaCorresp?.horaEntradaCola || new Date(entradaCorresp?.timestampCreacion || ahoraMs).toISOString();
     const horaEntradaColaMs = new Date(horaEntradaColaIso).getTime();
@@ -217,7 +283,6 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
     setAnimandoServidor(true);
     setTimeout(() => setAnimandoServidor(false), 250);
 
-    // Guardar evento intermedio en Firestore
     const nuevoEvento: Omit<EventoConteo, 'id'> = {
       sesionId,
       usuario,
@@ -232,7 +297,7 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
     await onRegistrarEvento(nuevoEvento);
   };
 
-  // 3. Cruza vehículo — Estrictamente solo si M >= 1 (Cálculo automático de fase semafórica de 96s)
+  // 3. Cruza vehículo — Solo si M >= 1
   const handleSalidaCola = async () => {
     if (enServidor <= 0) return;
 
@@ -240,7 +305,6 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
     const ahoraMs = Date.now();
     const ahoraIso = new Date(ahoraMs).toISOString();
 
-    // Tomar el vehículo más antiguo actualmente en el servidor (FIFO)
     const llegadaCorresp = llegadasServidor[salidasCola.length];
     const tLlegada = llegadaCorresp
       ? new Date(llegadaCorresp.horaLlegaServidor || llegadaCorresp.timestampCreacion).getTime()
@@ -252,12 +316,10 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
     const horaEntradaColaIso = new Date(tEntrada).toISOString();
     const horaLlegaServidorIso = new Date(tLlegada).toISOString();
 
-    // Cálculo matemático exacto de teoría de colas conservado sin alteraciones
     const tiempoEnColaSeg = Math.max(0, Math.round((tLlegada - tEntrada) / 1000));
     const tiempoEnServidorSeg = Math.max(0, Math.round((ahoraMs - tLlegada) / 1000));
     const tiempoTotalSeg = Math.max(0, Math.round((ahoraMs - tEntrada) / 1000));
 
-    // Determinación automática de la fase del semáforo según el ciclo de 96s
     const estadoSemaforo = calcularEstadoSemaforo(ahoraMs, inicioCicloSemaforo);
     const categoria = mapearFaseACategoria(estadoSemaforo.fase);
 
@@ -274,7 +336,6 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
       categoria
     });
 
-    // Guardar evento completo en Firestore
     const nuevoEvento: Omit<EventoConteo, 'id'> = {
       sesionId,
       usuario,
@@ -315,29 +376,87 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
     await onRegistrarEvento(nuevoEvento);
   };
 
-  // Deshacer última entrada a cola (sincronizado con Firestore para todo el equipo)
-  const handleDeshacerEntradaCola = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (enCola <= 0) return;
-    const ultimoEntrada = entradasCola[entradasCola.length - 1];
-    if (ultimoEntrada && ultimoEntrada.id) {
-      try {
-        await updateDoc(doc(db, 'eventos', ultimoEntrada.id), { enPapelera: true });
-      } catch (err) {
-        console.error('Error al deshacer entrada a cola en Firestore:', err);
+  // Deshacer (Undo) funcional y multi-nivel
+  const handleDeshacer = async (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (!ultimoEvento || !ultimoEvento.id || deshaciendo) return;
+
+    vibrar(50);
+    setAnimandoUndo(true);
+    setTimeout(() => setAnimandoUndo(false), 350);
+
+    const desc = getDescripcionAccion(ultimoEvento);
+    setDeshaciendo(true);
+
+    try {
+      // Revertir estados visuales locales si se deshizo una salida
+      if (ultimoEvento.tipoRegistro === 'salida_cola') {
+        setUltimaEspera(null);
+        setUltimoCruceResultado(null);
       }
+
+      let docId = ultimoEvento.id;
+      // Si el id es temporal por optimismo local, esperar brevemente a que Firestore responda con el id real
+      if (docId.startsWith('temp_')) {
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        const eventoActualizado = eventosDelTipo.find(
+          (ev) => ev.timestampCreacion === ultimoEvento.timestampCreacion && !ev.id.startsWith('temp_')
+        );
+        if (eventoActualizado) {
+          docId = eventoActualizado.id;
+        }
+      }
+
+      if (!docId.startsWith('temp_')) {
+        await updateDoc(doc(db, 'eventos', docId), { enPapelera: true });
+      }
+
+      setMensajeToast(desc);
+      if (toastTimeoutRef.current) {
+        clearTimeout(toastTimeoutRef.current);
+      }
+      toastTimeoutRef.current = setTimeout(() => {
+        setMensajeToast(null);
+      }, 2800);
+    } catch (err) {
+      console.error('Error al deshacer acción en Firestore:', err);
+    } finally {
+      setDeshaciendo(false);
     }
   };
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-3xl p-4 sm:p-5 shadow-lg flex flex-col justify-between transition hover:border-slate-700/80">
+    <div className="relative bg-slate-900 border border-slate-800 rounded-3xl p-4 sm:p-5 shadow-lg flex flex-col justify-between transition hover:border-slate-700/80">
+      {/* Toast Flotante Temporal de Deshacer */}
+      {mensajeToast && (
+        <div className="absolute top-3 left-3 right-3 z-30 bg-slate-950/95 border border-amber-500/60 text-amber-200 px-3.5 py-2.5 rounded-2xl text-xs font-semibold shadow-2xl flex items-center justify-between gap-2.5 animate-in fade-in slide-in-from-top-2 duration-200 backdrop-blur-md">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="p-1.5 rounded-xl bg-amber-500/20 text-amber-400 shrink-0">
+              <Undo2 className="w-4 h-4" />
+            </div>
+            <div className="truncate">
+              <p className="font-bold text-amber-300 text-xs truncate">{mensajeToast.accion}</p>
+              <p className="text-[10px] text-slate-400 truncate">{mensajeToast.detalle}</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setMensajeToast(null)}
+            className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 shrink-0 text-xs cursor-pointer active:scale-95 transition-transform"
+            aria-label="Cerrar notificación"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
       <div>
         {/* Encabezado del Bloque y Contadores en Paralelo */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-800 gap-2.5">
           <div className="flex items-center gap-3">
-            <span className="text-3xl select-none leading-none" role="img" aria-label={info.nombre}>
-              {info.emoji}
-            </span>
+            <div className={`p-2 rounded-xl ${info.badgeBg} ${info.color} flex items-center justify-center shrink-0`}>
+              <VehiculoIcono tipo={tipo} className="w-6 h-6" />
+            </div>
             <div>
               <h3 className={`text-base font-extrabold tracking-tight ${info.color}`}>
                 {info.nombre}
@@ -348,7 +467,7 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
             </div>
           </div>
 
-          {/* CONTADORES DOBLES EN PARALELO: EN COLA (N) Y EN SERVIDOR (M) */}
+          {/* CONTADORES DOBLES EN PARALELO: EN COLA (N) Y EN SERVIDOR (M) + BOTÓN DESHACER */}
           <div className="flex items-center gap-2 self-end sm:self-center">
             {/* Contador 1: En cola (N) */}
             <div
@@ -364,10 +483,11 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
                   <span className="text-[9px] uppercase font-bold text-slate-400">En cola</span>
                   {parqueadosEnCola > 0 && (
                     <span
-                      className="text-[9px] font-black px-1 rounded bg-amber-500/30 text-amber-200 border border-amber-500/40"
+                      className="text-[9px] font-black px-1.5 py-0.5 rounded bg-amber-500/30 text-amber-200 border border-amber-500/40 inline-flex items-center gap-1"
                       title={`${parqueadosEnCola} vehículo(s) parqueado(s) en carril`}
                     >
-                      🅿️{parqueadosEnCola}
+                      <CircleParking className="w-3 h-3 text-amber-300 shrink-0" />
+                      <span>{parqueadosEnCola}</span>
                     </span>
                   )}
                 </div>
@@ -383,24 +503,28 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
                   : 'bg-slate-800/80 border-slate-700 text-slate-400'
               }`}
             >
-              <Timer className="w-3.5 h-3.5 text-cyan-400" />
+              <Timer className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
               <div className="flex flex-col text-left leading-none">
                 <span className="text-[9px] uppercase font-bold text-slate-400">En semáforo</span>
                 <span className="text-base font-black text-white mt-0.5">{enServidor}</span>
               </div>
             </div>
 
-            {enCola > 0 && (
-              <button
-                type="button"
-                onClick={handleDeshacerEntradaCola}
-                title="Deshacer última entrada a la cola"
-                className="touch-btn text-[11px] text-slate-400 hover:text-white px-2 py-1.5 rounded-lg bg-slate-800 border border-slate-700 flex items-center gap-1 transition cursor-pointer"
-              >
-                <Undo2 className="w-3.5 h-3.5 text-slate-400" />
-                <span className="hidden sm:inline">Deshacer</span>
-              </button>
-            )}
+            {/* BOTÓN DESHACER (UNDO) FUNCIONAL Y MULTI-NIVEL */}
+            <button
+              type="button"
+              disabled={!ultimoEvento || deshaciendo}
+              onClick={handleDeshacer}
+              title={ultimoEvento ? `Deshacer: ${getDescripcionAccion(ultimoEvento).accion}` : 'Sin acciones para deshacer'}
+              className={`touch-btn group text-[11px] px-2.5 py-1.5 rounded-xl border flex items-center gap-1.5 transition-all active:scale-95 transition-transform cursor-pointer ${
+                ultimoEvento
+                  ? 'bg-slate-800/90 hover:bg-slate-750 hover:border-amber-500/50 text-slate-300 hover:text-white border-slate-700 shadow-sm'
+                  : 'bg-slate-800/30 border-slate-800/60 text-slate-600 cursor-not-allowed opacity-40'
+              }`}
+            >
+              <Undo2 className={`w-3.5 h-3.5 transition-transform duration-300 shrink-0 ${animandoUndo ? '-rotate-90 text-amber-400 scale-125' : 'text-slate-400 group-hover:text-amber-400'}`} />
+              <span className="hidden sm:inline font-medium">Deshacer</span>
+            </button>
           </div>
         </div>
 
@@ -412,10 +536,10 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
             <button
               type="button"
               onClick={handleEntraCola}
-              className={`touch-btn py-3 px-2.5 rounded-2xl font-black text-xs sm:text-sm tracking-wide uppercase transition-all flex flex-col items-center justify-center gap-1 shadow-md cursor-pointer ${
+              className={`touch-btn py-3 px-2.5 rounded-2xl font-black text-xs sm:text-sm tracking-wide uppercase transition-all flex flex-col items-center justify-center gap-1 shadow-md cursor-pointer active:scale-95 transition-transform ${
                 animandoEntrada
                   ? 'bg-amber-400 text-slate-950 scale-95'
-                  : 'bg-gradient-to-br from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-slate-950 shadow-amber-600/20 active:scale-95'
+                  : 'bg-gradient-to-br from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-slate-950 shadow-amber-600/20'
               }`}
             >
               <div className="flex items-center gap-1.5">
@@ -427,16 +551,16 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
               </span>
             </button>
 
-            {/* BOTÓN 2: Llega al servidor (semáforo) — Deshabilitado si los vehículos en cola están parqueados */}
+            {/* BOTÓN 2: Llega al servidor (semáforo) */}
             <button
               type="button"
               disabled={enColaDisponibles === 0}
               onClick={handleLlegaServidor}
-              className={`touch-btn py-3 px-2.5 rounded-2xl border font-bold text-xs sm:text-sm tracking-wide uppercase transition-all flex flex-col items-center justify-center gap-1 shadow-md ${
+              className={`touch-btn py-3 px-2.5 rounded-2xl border font-bold text-xs sm:text-sm tracking-wide uppercase transition-all flex flex-col items-center justify-center gap-1 shadow-md active:scale-95 transition-transform ${
                 enColaDisponibles > 0
                   ? animandoServidor
                     ? 'bg-cyan-400 text-slate-950 scale-95 border-cyan-400'
-                    : 'bg-gradient-to-br from-cyan-600 to-cyan-700 hover:from-cyan-500 hover:to-cyan-600 text-white shadow-cyan-600/20 active:scale-95 border-cyan-500/40 cursor-pointer'
+                    : 'bg-gradient-to-br from-cyan-600 to-cyan-700 hover:from-cyan-500 hover:to-cyan-600 text-white shadow-cyan-600/20 border-cyan-500/40 cursor-pointer'
                   : 'bg-slate-800/40 border-slate-800 text-slate-500 cursor-not-allowed opacity-40'
               }`}
             >
@@ -444,10 +568,17 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
                 <LogIn className="w-4 h-4 shrink-0" />
                 <span>2. Al semáforo</span>
               </div>
-              <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-md ${
+              <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-md inline-flex items-center justify-center gap-1 ${
                 enColaDisponibles > 0 ? 'bg-black/20 text-cyan-200' : 'text-slate-600'
               }`}>
-                {enCola > 0 && enColaDisponibles === 0 ? '🅿️ Parqueado' : 'Pasa al frente'}
+                {enCola > 0 && enColaDisponibles === 0 ? (
+                  <>
+                    <CircleParking className="w-3 h-3 text-amber-300 shrink-0" />
+                    <span>Parqueado</span>
+                  </>
+                ) : (
+                  <span>Pasa al frente</span>
+                )}
               </span>
             </button>
           </div>
@@ -456,7 +587,9 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
           {parqueadosEnCola > 0 ? (
             <div className="p-2.5 rounded-2xl bg-amber-500/15 border border-amber-500/40 text-amber-200 text-xs flex items-center justify-between gap-2 shadow-sm animate-in fade-in">
               <div className="flex items-center gap-2 min-w-0">
-                <span className="text-base select-none shrink-0">🅿️</span>
+                <div className="p-1 rounded-lg bg-amber-500/20 text-amber-300 shrink-0">
+                  <CircleParking className="w-4 h-4" />
+                </div>
                 <div className="leading-tight truncate">
                   <span className="font-black text-amber-300">
                     {parqueadosEnCola} {parqueadosEnCola === 1 ? 'parqueado en carril' : 'parqueados en carril'}
@@ -472,7 +605,7 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
                     type="button"
                     onClick={handleMarcarParqueado}
                     title="Marcar otro vehículo parqueado en carril"
-                    className="touch-btn text-[10px] font-bold px-2 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/40 cursor-pointer"
+                    className="touch-btn text-[10px] font-bold px-2 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/40 cursor-pointer active:scale-95 transition-transform"
                   >
                     +1
                   </button>
@@ -481,7 +614,7 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
                   type="button"
                   onClick={handleDesmarcarParqueado}
                   title="Reanuda la marcha del vehículo y se habilita para avanzar al semáforo"
-                  className="touch-btn text-[11px] font-black px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-sm transition active:scale-95 cursor-pointer"
+                  className="touch-btn text-[11px] font-black px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-sm transition active:scale-95 transition-transform cursor-pointer"
                 >
                   Desmarcar
                 </button>
@@ -492,24 +625,24 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
               <button
                 type="button"
                 onClick={handleMarcarParqueado}
-                className="touch-btn w-full py-1.5 px-3 rounded-xl border border-slate-800 hover:border-amber-500/40 bg-slate-950/60 hover:bg-amber-500/10 text-slate-400 hover:text-amber-300 text-[11px] font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer"
+                className="touch-btn w-full py-1.5 px-3 rounded-xl border border-slate-800 hover:border-amber-500/40 bg-slate-950/60 hover:bg-amber-500/10 text-slate-400 hover:text-amber-300 text-[11px] font-semibold flex items-center justify-center gap-1.5 transition active:scale-95 transition-transform cursor-pointer"
                 title="Marcar que un vehículo que entró a la cola se estacionó/parqueó en el carril"
               >
-                <span>🅿️</span>
+                <CircleParking className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                 <span>¿Vehículo se parqueó en carril?</span>
               </button>
             )
           )}
 
-          {/* BOTÓN 3: UN SOLO BOTÓN "3. CRUZA" — DESHABILITADO SI M = 0 */}
+          {/* BOTÓN 3: "3. CRUZA VEHÍCULO" — DESHABILITADO SI M = 0 */}
           <div className="space-y-2">
             <button
               type="button"
               disabled={enServidor === 0}
               onClick={handleSalidaCola}
-              className={`touch-btn w-full py-3.5 px-4 rounded-2xl border flex items-center justify-center gap-2.5 transition-all shadow-md ${
+              className={`touch-btn w-full py-3.5 px-4 rounded-2xl border flex items-center justify-center gap-2.5 transition-all shadow-md active:scale-95 transition-transform ${
                 enServidor > 0
-                  ? 'bg-gradient-to-r from-emerald-600 via-teal-600 to-blue-600 hover:from-emerald-500 hover:to-blue-500 text-white shadow-emerald-700/25 active:scale-95 border-emerald-400/40 cursor-pointer font-black text-sm'
+                  ? 'bg-gradient-to-r from-emerald-600 via-teal-600 to-blue-600 hover:from-emerald-500 hover:to-blue-500 text-white shadow-emerald-700/25 border-emerald-400/40 cursor-pointer font-black text-sm'
                   : 'bg-slate-800/40 border-slate-800 text-slate-500 cursor-not-allowed opacity-40 font-bold text-sm'
               }`}
             >
@@ -529,7 +662,17 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
                   : 'bg-slate-800/60 border-slate-700 text-slate-300'
               }`}>
                 <div className="flex items-center gap-1.5 font-bold">
-                  <span>{ultimoCruceResultado.fase === 'verde' ? '🟢' : ultimoCruceResultado.fase === 'amarillo' ? '🟡' : ultimoCruceResultado.fase === 'rojo' ? '🔴' : '⚪'}</span>
+                  <Disc
+                    className={`w-4 h-4 shrink-0 ${
+                      ultimoCruceResultado.fase === 'verde'
+                        ? 'text-emerald-400 fill-emerald-400'
+                        : ultimoCruceResultado.fase === 'amarillo'
+                        ? 'text-amber-400 fill-amber-400'
+                        : ultimoCruceResultado.fase === 'rojo'
+                        ? 'text-rose-400 fill-rose-400'
+                        : 'text-slate-400'
+                    }`}
+                  />
                   <span>
                     Cruzó en {ultimoCruceResultado.fase ? ultimoCruceResultado.fase.toUpperCase() : 'Sin sincronizar'}
                   </span>
@@ -546,7 +689,7 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
             <button
               type="button"
               onClick={() => setModalCruceDirectoAbierto(true)}
-              className="touch-btn w-full py-2 px-3 rounded-xl border border-amber-500/40 hover:border-amber-400 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 font-bold text-xs flex items-center justify-center gap-2 transition cursor-pointer shadow-sm active:scale-98"
+              className="touch-btn w-full py-2 px-3 rounded-xl border border-amber-500/40 hover:border-amber-400 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 font-bold text-xs flex items-center justify-center gap-2 transition cursor-pointer shadow-sm active:scale-95 transition-transform"
               title="Registrar cruce de vehículo en flujo libre sin detenerse en cola ni en semáforo"
             >
               <Zap className="w-3.5 h-3.5 text-amber-400 fill-amber-400 shrink-0" />
@@ -604,7 +747,7 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
         <div className="mt-2.5 bg-slate-800/40 p-2.5 rounded-2xl border border-slate-800 text-xs text-slate-300 space-y-1.5">
           <div className="flex items-center justify-between text-[11px]">
             <div className="flex items-center gap-1 text-slate-400">
-              <Timer className="w-3.5 h-3.5 text-blue-400" />
+              <Timer className="w-3.5 h-3.5 text-blue-400 shrink-0" />
               <span>Promedios:</span>
             </div>
             <div className="flex items-center gap-2 font-mono text-[11px]">
@@ -659,12 +802,12 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
             onClick={() => handleMovimiento('izquierda')}
             className={`touch-btn py-2.5 px-2 rounded-xl border flex flex-col items-center justify-center gap-1 transition ${
               movimientosHabilitados
-                ? 'bg-slate-800 hover:bg-slate-700 border-slate-700 hover:border-blue-500/50 text-slate-200 cursor-pointer shadow-sm active:scale-95'
+                ? 'bg-slate-800 hover:bg-slate-700 border-slate-700 hover:border-blue-500/50 text-slate-200 cursor-pointer shadow-sm active:scale-95 transition-transform'
                 : 'bg-slate-800/30 border-slate-800/60 text-slate-600 cursor-not-allowed opacity-50'
             }`}
           >
             <div className="flex items-center gap-1 font-bold text-xs">
-              <ArrowLeft className="w-4 h-4 text-blue-400" />
+              <ArrowLeft className="w-4 h-4 text-blue-400 shrink-0" />
               <span>Izq</span>
             </div>
             <span className="text-[10px] font-mono text-slate-400">{countIzquierda}</span>
@@ -677,12 +820,12 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
             onClick={() => handleMovimiento('recto')}
             className={`touch-btn py-2.5 px-2 rounded-xl border flex flex-col items-center justify-center gap-1 transition ${
               movimientosHabilitados
-                ? 'bg-slate-800 hover:bg-slate-700 border-slate-700 hover:border-blue-500/50 text-slate-200 cursor-pointer shadow-sm active:scale-95'
+                ? 'bg-slate-800 hover:bg-slate-700 border-slate-700 hover:border-blue-500/50 text-slate-200 cursor-pointer shadow-sm active:scale-95 transition-transform'
                 : 'bg-slate-800/30 border-slate-800/60 text-slate-600 cursor-not-allowed opacity-50'
             }`}
           >
             <div className="flex items-center gap-1 font-bold text-xs">
-              <ArrowUp className="w-4 h-4 text-blue-400" />
+              <ArrowUp className="w-4 h-4 text-blue-400 shrink-0" />
               <span>Recto</span>
             </div>
             <span className="text-[10px] font-mono text-slate-400">{countRecto}</span>
@@ -695,12 +838,12 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
             onClick={() => handleMovimiento('derecha')}
             className={`touch-btn py-2.5 px-2 rounded-xl border flex flex-col items-center justify-center gap-1 transition ${
               movimientosHabilitados
-                ? 'bg-slate-800 hover:bg-slate-700 border-slate-700 hover:border-blue-500/50 text-slate-200 cursor-pointer shadow-sm active:scale-95'
+                ? 'bg-slate-800 hover:bg-slate-700 border-slate-700 hover:border-blue-500/50 text-slate-200 cursor-pointer shadow-sm active:scale-95 transition-transform'
                 : 'bg-slate-800/30 border-slate-800/60 text-slate-600 cursor-not-allowed opacity-50'
             }`}
           >
             <div className="flex items-center gap-1 font-bold text-xs">
-              <ArrowRight className="w-4 h-4 text-blue-400" />
+              <ArrowRight className="w-4 h-4 text-blue-400 shrink-0" />
               <span>Der</span>
             </div>
             <span className="text-[10px] font-mono text-slate-400">{countDerecha}</span>
