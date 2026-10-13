@@ -18,9 +18,13 @@ service cloud.firestore {
       ];
     }
 
-    // Función: verifica si el usuario es el aforador universitario exclusivo
+    // Función: verifica si el usuario es aforador universitario autorizado
     function esAforadorUniversitario() {
-      return request.auth != null && request.auth.token.email == "janiez@uniguajira.edu.co";
+      return request.auth != null && request.auth.token.email in [
+        "janiez@uniguajira.edu.co",
+        "bcamilobrito@uniguajira.edu.co",
+        "sivanrodriguez@uniguajira.edu.co"
+      ];
     }
 
     // Función: verifica si el usuario es administrador

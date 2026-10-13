@@ -1,6 +1,7 @@
 import React from 'react';
-import { Users, UserPlus, UserMinus, Activity, TrendingUp, AlertTriangle } from 'lucide-react';
+import { Users, UserPlus, UserMinus, Activity, TrendingUp, AlertTriangle, DoorOpen } from 'lucide-react';
 import type { MetricasAforoUni, SesionAforoUni } from '../../types/aforoUniversitario';
+import { obtenerPuertasPorBloque } from '../../types/aforoUniversitario';
 
 interface MetricasAforoCardsProps {
   metricas: MetricasAforoUni;
@@ -10,6 +11,8 @@ interface MetricasAforoCardsProps {
 export const MetricasAforoCards: React.FC<MetricasAforoCardsProps> = ({ metricas, sesion }) => {
   const capacidad = sesion.capacidadMaxima;
   const porcentaje = capacidad && capacidad > 0 ? Math.round((metricas.aforoActual / capacidad) * 100) : null;
+  const puertasBloque = obtenerPuertasPorBloque(sesion.bloque);
+  const entradasPorPuerta = metricas.entradasPorPuerta || {};
 
   // Estado del aforo respecto a la capacidad
   let estadoAforoColor = 'text-blue-400 bg-blue-500/10 border-blue-500/20';
@@ -39,7 +42,7 @@ export const MetricasAforoCards: React.FC<MetricasAforoCardsProps> = ({ metricas
             <div className="flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping shrink-0" />
               <span className="text-xs uppercase font-extrabold tracking-wider text-slate-400">
-                Aforo en Tiempo Real en el Bloque
+                Aforo en Tiempo Real en {sesion.bloque}
               </span>
               <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${estadoAforoColor}`}>
                 {estadoTexto}
@@ -162,6 +165,71 @@ export const MetricasAforoCards: React.FC<MetricasAforoCardsProps> = ({ metricas
               Pico: {metricas.horaPico || 'N/A'}
             </p>
           </div>
+        </div>
+      </div>
+
+      {/* DISCRIMINACIÓN DE INGRESOS POR PUNTO DE ACCESO */}
+      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-4 sm:p-5 shadow-lg space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+              <DoorOpen className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">
+                Distribución de Ingresos por Puerta ({sesion.bloque})
+              </h3>
+              <p className="text-[11px] text-slate-400">
+                Punto de origen de los ingresos contabilizados en este bloque
+              </p>
+            </div>
+          </div>
+          <span className="text-xs font-mono font-bold text-emerald-300 bg-emerald-500/10 px-2.5 py-1 rounded-xl border border-emerald-500/20">
+            {metricas.totalEntradas} ingresos totales
+          </span>
+        </div>
+
+        <div className={`grid gap-2.5 ${puertasBloque.length > 2 ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-2'}`}>
+          {puertasBloque.map((p) => {
+            const cant = entradasPorPuerta[p] || 0;
+            const pct = metricas.totalEntradas > 0 ? Math.round((cant / metricas.totalEntradas) * 100) : 0;
+            const esLateral = p.toLowerCase().includes('lateral');
+
+            return (
+              <div
+                key={p}
+                className="bg-slate-950/80 border border-slate-800 rounded-2xl p-3 flex flex-col justify-between"
+              >
+                <div className="flex items-center justify-between text-xs mb-1">
+                  <span className="font-bold text-slate-300 truncate text-[11px]">
+                    {p}
+                  </span>
+                  {esLateral && (
+                    <span className="text-[9px] font-mono uppercase bg-amber-500/10 text-amber-300 px-1.5 py-0.2 rounded border border-amber-500/20">
+                      Lateral
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-baseline justify-between mt-1">
+                  <span className="text-xl sm:text-2xl font-black font-mono text-white">
+                    {cant}
+                  </span>
+                  <span className="text-xs font-mono font-bold text-slate-400">
+                    {pct}%
+                  </span>
+                </div>
+
+                {/* Micro barra de proporción */}
+                <div className="w-full bg-slate-800 rounded-full h-1.5 mt-2 overflow-hidden">
+                  <div
+                    className="h-full bg-emerald-500 rounded-full transition-all duration-300"
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>

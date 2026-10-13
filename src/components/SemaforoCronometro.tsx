@@ -115,7 +115,7 @@ export const SemaforoCronometro: React.FC<SemaforoCronometroProps> = ({
                   ? 'bg-amber-400 shadow-[0_0_12px_rgba(245,158,11,0.9)] ring-2 ring-amber-300'
                   : 'bg-amber-950/80 opacity-40'
               }`}
-              title="Luz Amarilla (3s post-verde / 3s pre-verde)"
+              title="Luz Amarilla (3s post-verde / 2s pre-verde)"
             />
             <span
               className={`w-3.5 h-3.5 rounded-full transition-all duration-300 ${
@@ -133,7 +133,7 @@ export const SemaforoCronometro: React.FC<SemaforoCronometroProps> = ({
                 <span>Ciclo Semafórico Continuo</span>
               </h3>
               <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-300 border border-blue-500/30 font-bold">
-                {DURACION_CICLO_SEG}s (18V / 3A / 72R / 3A)
+                {DURACION_CICLO_SEG}s (18V / 3A / 72R / 2A)
               </span>
             </div>
             <p className="text-xs text-slate-400">
@@ -290,10 +290,10 @@ export const SemaforoCronometro: React.FC<SemaforoCronometroProps> = ({
             </div>
           </div>
 
-          {/* Barra visual de distribución del ciclo (18s Verde | 3s Amarillo | 72s Rojo | 3s Amarillo) */}
+          {/* Barra visual de distribución del ciclo (18s Verde | 3s Amarillo | 72s Rojo | 2s Amarillo) */}
           <div className="space-y-1">
             <div className="w-full h-2.5 bg-slate-950 rounded-full overflow-hidden flex border border-slate-800 relative">
-              {/* Franja Verde: 18/96 = 18.75% */}
+              {/* Franja Verde: 18/95 */}
               <div
                 style={{ width: `${(DURACION_VERDE_SEG / DURACION_CICLO_SEG) * 100}%` }}
                 className={`h-full transition-opacity ${
@@ -301,7 +301,7 @@ export const SemaforoCronometro: React.FC<SemaforoCronometroProps> = ({
                 }`}
                 title="Tramo Verde: 0 a 18s"
               />
-              {/* Franja Amarillo 1: 3/96 = 3.125% */}
+              {/* Franja Amarillo 1: 3/95 */}
               <div
                 style={{ width: `${(DURACION_AMARILLO_SEG / DURACION_CICLO_SEG) * 100}%` }}
                 className={`h-full transition-opacity ${
@@ -309,7 +309,7 @@ export const SemaforoCronometro: React.FC<SemaforoCronometroProps> = ({
                 }`}
                 title="Tramo Amarillo 1: 18 a 21s"
               />
-              {/* Franja Rojo: 72/96 = 75% */}
+              {/* Franja Rojo: 72/95 */}
               <div
                 style={{ width: `${(DURACION_ROJO_SEG / DURACION_CICLO_SEG) * 100}%` }}
                 className={`h-full transition-opacity ${
@@ -317,13 +317,13 @@ export const SemaforoCronometro: React.FC<SemaforoCronometroProps> = ({
                 }`}
                 title="Tramo Rojo: 21 a 93s"
               />
-              {/* Franja Amarillo 2: 3/96 = 3.125% */}
+              {/* Franja Amarillo 2: 2/95 */}
               <div
                 style={{ width: `${(DURACION_AMARILLO_FINAL_SEG / DURACION_CICLO_SEG) * 100}%` }}
                 className={`h-full transition-opacity ${
                   estado.fase === 'amarillo' && (estado.segundoEnCicloExacto ?? 0) >= 93 ? 'bg-amber-400 shadow-sm shadow-amber-300' : 'bg-amber-950/80'
                 }`}
-                title="Tramo Amarillo 2: 93 a 96s"
+                title="Tramo Amarillo 2: 93 a 95s"
               />
 
               {/* Indicador de posición actual (aguja en vivo) */}
@@ -341,8 +341,8 @@ export const SemaforoCronometro: React.FC<SemaforoCronometroProps> = ({
               <span className="text-emerald-400">0s Verde (18s)</span>
               <span className="text-amber-400">18s Am. (3s)</span>
               <span className="text-rose-400">21s Rojo (72s)</span>
-              <span className="text-amber-400">93s Am. (3s)</span>
-              <span>96s</span>
+              <span className="text-amber-400">93s Am. (2s)</span>
+              <span>{DURACION_CICLO_SEG}s</span>
             </div>
           </div>
 
@@ -370,7 +370,7 @@ export const SemaforoCronometro: React.FC<SemaforoCronometroProps> = ({
         <div className="mt-3.5 p-4 rounded-2xl bg-slate-950/70 border border-slate-800 text-center space-y-3">
           <div className="flex items-center justify-center gap-2 text-amber-400 font-bold text-sm">
             <Info className="w-4 h-4 shrink-0" />
-            <span>El ciclo de 96 segundos no ha sido iniciado para esta sesión</span>
+            <span>El ciclo de {DURACION_CICLO_SEG} segundos no ha sido iniciado para esta sesión</span>
           </div>
           <p className="text-xs text-slate-400 max-w-md mx-auto">
             Observa el semáforo real de la intersección. En el momento exacto en que la luz cambie a <strong>VERDE</strong>, presiona el botón inferior para sincronizar a todo el equipo.
@@ -405,7 +405,7 @@ export const SemaforoCronometro: React.FC<SemaforoCronometroProps> = ({
               </div>
               <div>
                 <h3 className="text-base font-bold text-white">¿Re-sincronizar semáforo?</h3>
-                <p className="text-xs text-slate-400">Calibración colaborativa del ciclo de 96 segundos</p>
+                <p className="text-xs text-slate-400">Calibración colaborativa del ciclo de {DURACION_CICLO_SEG} segundos</p>
               </div>
             </div>
 

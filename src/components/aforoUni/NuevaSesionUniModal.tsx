@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { X, Building2, PlusCircle, Users, DoorOpen } from 'lucide-react';
-import { BLOQUES_UNIVERSIDAD, type SesionAforoUni } from '../../types/aforoUniversitario';
+import { X, Building2, PlusCircle, Users, DoorOpen, Info } from 'lucide-react';
+import { BLOQUES_UNIVERSIDAD, obtenerPuertasPorBloque, type SesionAforoUni } from '../../types/aforoUniversitario';
 
 interface NuevaSesionUniModalProps {
   abierto: boolean;
@@ -16,14 +16,23 @@ export const NuevaSesionUniModal: React.FC<NuevaSesionUniModalProps> = ({
   onCrearSesion
 }) => {
   const [nombre, setNombre] = useState('');
-  const [bloqueSeleccionado, setBloqueSeleccionado] = useState<string>('Bloque 6');
+  const [bloqueSeleccionado, setBloqueSeleccionado] = useState<string>('Bloque 1');
   const [bloquePersonalizado, setBloquePersonalizado] = useState('');
-  const [puertaAcceso, setPuertaAcceso] = useState('Entrada Principal');
+  const [puertaAcceso, setPuertaAcceso] = useState('Entrada Frontal');
   const [capacidadMaxima, setCapacidadMaxima] = useState<string>('');
   const [aforoInicial, setAforoInicial] = useState<string>('0');
   const [guardando, setGuardando] = useState(false);
 
+  const handleCambioBloque = (nuevoBloque: string) => {
+    setBloqueSeleccionado(nuevoBloque);
+    const puertas = obtenerPuertasPorBloque(nuevoBloque);
+    setPuertaAcceso(puertas[0] || 'Entrada Frontal');
+  };
+
   if (!abierto) return null;
+
+  const puertasDisponibles = obtenerPuertasPorBloque(bloqueSeleccionado);
+  const esBloque5 = bloqueSeleccionado === 'Bloque 5';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -84,7 +93,7 @@ export const NuevaSesionUniModal: React.FC<NuevaSesionUniModalProps> = ({
             <input
               type="text"
               required
-              placeholder="Ej. Bloque 6 - Acceso Principal Mañana"
+              placeholder={`Ej. ${bloqueSeleccionado} - Turno Mañana`}
               value={nombre}
               onChange={(e) => setNombre(e.target.value)}
               className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
@@ -98,7 +107,7 @@ export const NuevaSesionUniModal: React.FC<NuevaSesionUniModalProps> = ({
             </label>
             <select
               value={bloqueSeleccionado}
-              onChange={(e) => setBloqueSeleccionado(e.target.value)}
+              onChange={(e) => handleCambioBloque(e.target.value)}
               className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-blue-500 cursor-pointer"
             >
               {BLOQUES_UNIVERSIDAD.map((b) => (
@@ -107,6 +116,23 @@ export const NuevaSesionUniModal: React.FC<NuevaSesionUniModalProps> = ({
                 </option>
               ))}
             </select>
+          </div>
+
+          {/* Indicador de accesos según el bloque */}
+          <div className={`p-3 rounded-2xl border text-xs space-y-1 ${
+            esBloque5
+              ? 'bg-amber-500/10 border-amber-500/30 text-amber-200'
+              : 'bg-blue-500/10 border-blue-500/30 text-blue-200'
+          }`}>
+            <div className="flex items-center gap-1.5 font-bold">
+              <Info className="w-3.5 h-3.5 shrink-0" />
+              <span>Accesos disponibles para {bloqueSeleccionado}:</span>
+            </div>
+            <p className="text-[11px] text-slate-300 leading-relaxed">
+              {esBloque5
+                ? 'El Bloque 5 dispone de 4 puertas: Entrada Frontal, Entrada Trasera y 2 Entradas Laterales (Lateral 1 y Lateral 2).'
+                : 'Dispone de 2 accesos de entrada y salida: Entrada Frontal y Entrada Trasera.'}
+            </p>
           </div>
 
           {/* Bloque personalizado si eligió "Otro" */}
@@ -126,19 +152,23 @@ export const NuevaSesionUniModal: React.FC<NuevaSesionUniModalProps> = ({
             </div>
           )}
 
-          {/* Puerta o Acceso */}
+          {/* Puerta o Acceso de inicio */}
           <div>
             <label className="block text-xs font-semibold text-slate-300 mb-1 flex items-center gap-1.5">
               <DoorOpen className="w-3.5 h-3.5 text-slate-400" />
-              <span>Puerta / Acceso Monitoreado</span>
+              <span>Acceso de inicio asignado</span>
             </label>
-            <input
-              type="text"
-              placeholder="Ej. Entrada Principal, Puerta Norte, Pasillo Central"
+            <select
               value={puertaAcceso}
               onChange={(e) => setPuertaAcceso(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
-            />
+              className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-blue-500 cursor-pointer"
+            >
+              {puertasDisponibles.map((p) => (
+                <option key={p} value={p}>
+                  {p}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="grid grid-cols-2 gap-3">

@@ -42,7 +42,7 @@ export function exportarAforoUniXLSX(
     ['ID Sesión', sesion.id],
     ['Nombre de la Medición', sesion.nombre],
     ['Bloque / Edificio', sesion.bloque],
-    ['Puerta / Acceso', sesion.puertaAcceso || 'Acceso general'],
+    ['Puerta / Acceso Asignado', sesion.puertaAcceso || 'Acceso general'],
     ['Responsable', sesion.usuario],
     ['Fecha de Inicio', formatFecha(sesion.fechaCreacion)],
     ['Fecha de Cierre', sesion.fechaCierre ? formatFecha(sesion.fechaCierre) : 'Sesión en curso / Abierta'],
@@ -51,6 +51,12 @@ export function exportarAforoUniXLSX(
     ['MÉTRICAS Y RESULTADOS DE AFORO'],
     ['Aforo Actual / Final', metricas.aforoActual],
     ['Total Personas que Entraron', metricas.totalEntradas],
+    ...(metricas.entradasPorPuerta
+      ? Object.entries(metricas.entradasPorPuerta).map(([puerta, cant]) => [
+          `  -> Ingresos por ${puerta}`,
+          `${cant} (${metricas.totalEntradas > 0 ? Math.round((cant / metricas.totalEntradas) * 100) : 0}%)`
+        ])
+      : []),
     ['Total Personas que Salieron', metricas.totalSalidas],
     ['Volumen Total de Tránsito (Entradas + Salidas)', metricas.volumenTransito],
     ['Aforo Pico Máximo Alcanzado', metricas.aforoPico],
@@ -80,6 +86,7 @@ export function exportarAforoUniXLSX(
     'Fecha y Hora': formatFecha(ev.timestamp),
     'Hora': formatHora(ev.timestamp),
     'Tipo de Movimiento': ev.tipo === 'entrada' ? 'ENTRADA (+)' : 'SALIDA (-)',
+    'Punto de Acceso': ev.puerta || 'Entrada Frontal',
     'Cantidad de Personas': ev.cantidad,
     'Aforo en ese Instante': ev.aforoMomento,
     'Registrado Por': ev.usuario,
@@ -94,6 +101,7 @@ export function exportarAforoUniXLSX(
     { wch: 22 },
     { wch: 12 },
     { wch: 20 },
+    { wch: 22 },
     { wch: 20 },
     { wch: 22 },
     { wch: 30 },
@@ -123,6 +131,7 @@ export function exportarAforoUniCSV(
       'Bloque',
       'Fecha_Hora',
       'Tipo_Movimiento',
+      'Punto_Acceso',
       'Cantidad',
       'Aforo_Momento',
       'Usuario',
@@ -138,6 +147,7 @@ export function exportarAforoUniCSV(
       `"${sesion.bloque.replace(/"/g, '""')}"`,
       formatFecha(ev.timestamp),
       ev.tipo.toUpperCase(),
+      `"${(ev.puerta || 'Entrada Frontal').replace(/"/g, '""')}"`,
       String(ev.cantidad),
       String(ev.aforoMomento),
       ev.usuario,

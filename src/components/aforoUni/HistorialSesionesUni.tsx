@@ -36,16 +36,21 @@ export const HistorialSesionesUni: React.FC<HistorialSesionesUniProps> = ({
     let salidas = 0;
     let pico = aforoInicial;
     let horaPico: string | null = null;
+    const entradasPorPuerta: Record<string, number> = {};
+    const salidasPorPuerta: Record<string, number> = {};
 
     evs
       .sort((a, b) => a.timestamp - b.timestamp)
       .forEach((e) => {
+        const p = e.puerta || 'Entrada Frontal';
         if (e.tipo === 'entrada') {
           entradas += e.cantidad;
           aforo += e.cantidad;
+          entradasPorPuerta[p] = (entradasPorPuerta[p] || 0) + e.cantidad;
         } else {
           salidas += e.cantidad;
           aforo = Math.max(0, aforo - e.cantidad);
+          salidasPorPuerta[p] = (salidasPorPuerta[p] || 0) + e.cantidad;
         }
         if (aforo > pico) {
           pico = aforo;
@@ -62,7 +67,9 @@ export const HistorialSesionesUni: React.FC<HistorialSesionesUniProps> = ({
       totalSalidas: salidas,
       volumenTransito: entradas + salidas,
       aforoPico: pico,
-      horaPico
+      horaPico,
+      entradasPorPuerta,
+      salidasPorPuerta
     };
   };
 

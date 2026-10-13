@@ -127,7 +127,7 @@ export interface EventoConteo {
   // Giros / movimientos independientes
   movimiento?: MovimientoGiro | null;
 
-  // Ciclo semafórico automático (96s: 18V / 3A / 72R / 3A)
+  // Ciclo semafórico automático (95s: 18V / 3A / 72R / 2A)
   faseCruce?: FaseSemaforo | null;
   segundoEnCiclo?: number | null;
   numeroCiclo?: number | null;

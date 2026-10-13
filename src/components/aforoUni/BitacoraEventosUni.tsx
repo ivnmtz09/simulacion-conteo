@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { ListFilter, Search, Trash2, UserPlus, UserMinus, FileSpreadsheet, Download } from 'lucide-react';
+import { ListFilter, Search, Trash2, UserPlus, UserMinus, FileSpreadsheet, Download, DoorOpen } from 'lucide-react';
 import type { EventoAforoUni } from '../../types/aforoUniversitario';
 
 interface BitacoraEventosUniProps {
@@ -16,6 +16,7 @@ export const BitacoraEventosUni: React.FC<BitacoraEventosUniProps> = ({
   onExportarCSV
 }) => {
   const [filtroTipo, setFiltroTipo] = useState<'todos' | 'entrada' | 'salida'>('todos');
+  const [filtroPuerta, setFiltroPuerta] = useState<string>('todas');
   const [busqueda, setBusqueda] = useState('');
 
   const eventosActivos = useMemo(() => {
@@ -24,18 +25,28 @@ export const BitacoraEventosUni: React.FC<BitacoraEventosUniProps> = ({
       .sort((a, b) => b.timestamp - a.timestamp); // Más recientes primero
   }, [eventos]);
 
+  const puertasDisponibles = useMemo(() => {
+    const setP = new Set<string>();
+    eventosActivos.forEach((e) => {
+      if (e.puerta) setP.add(e.puerta);
+    });
+    return Array.from(setP);
+  }, [eventosActivos]);
+
   const eventosFiltrados = useMemo(() => {
     return eventosActivos.filter((e) => {
       if (filtroTipo !== 'todos' && e.tipo !== filtroTipo) return false;
+      if (filtroPuerta !== 'todas' && (e.puerta || 'Entrada Frontal') !== filtroPuerta) return false;
       if (busqueda.trim()) {
         const q = busqueda.toLowerCase();
         const horaStr = new Date(e.timestamp).toLocaleTimeString('es-CO');
         const matchNota = e.nota ? e.nota.toLowerCase().includes(q) : false;
-        return horaStr.includes(q) || matchNota;
+        const matchPuerta = e.puerta ? e.puerta.toLowerCase().includes(q) : false;
+        return horaStr.includes(q) || matchNota || matchPuerta;
       }
       return true;
     });
-  }, [eventosActivos, filtroTipo, busqueda]);
+  }, [eventosActivos, filtroTipo, filtroPuerta, busqueda]);
 
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-3xl p-4 sm:p-5 shadow-xl space-y-4">
@@ -82,51 +93,72 @@ export const BitacoraEventosUni: React.FC<BitacoraEventosUniProps> = ({
         </div>
       </div>
 
-      {/* Filtros rápidos y buscador */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
-        <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs">
-          <button
-            type="button"
-            onClick={() => setFiltroTipo('todos')}
-            className={`px-3 py-1 rounded-lg font-semibold transition cursor-pointer ${
-              filtroTipo === 'todos'
-                ? 'bg-blue-600 text-white shadow'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            Todos ({eventosActivos.length})
-          </button>
-          <button
-            type="button"
-            onClick={() => setFiltroTipo('entrada')}
-            className={`px-3 py-1 rounded-lg font-semibold transition cursor-pointer flex items-center gap-1 ${
-              filtroTipo === 'entrada'
-                ? 'bg-emerald-600 text-white shadow'
-                : 'text-slate-400 hover:text-emerald-300'
-            }`}
-          >
-            <UserPlus className="w-3 h-3" />
-            <span>Entradas</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setFiltroTipo('salida')}
-            className={`px-3 py-1 rounded-lg font-semibold transition cursor-pointer flex items-center gap-1 ${
-              filtroTipo === 'salida'
-                ? 'bg-rose-600 text-white shadow'
-                : 'text-slate-400 hover:text-rose-300'
-            }`}
-          >
-            <UserMinus className="w-3 h-3" />
-            <span>Salidas</span>
-          </button>
+      {/* Filtros rápidos, filtro por puerta y buscador */}
+      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2.5">
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs">
+            <button
+              type="button"
+              onClick={() => setFiltroTipo('todos')}
+              className={`px-3 py-1 rounded-lg font-semibold transition cursor-pointer ${
+                filtroTipo === 'todos'
+                  ? 'bg-blue-600 text-white shadow'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              Todos ({eventosActivos.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setFiltroTipo('entrada')}
+              className={`px-3 py-1 rounded-lg font-semibold transition cursor-pointer flex items-center gap-1 ${
+                filtroTipo === 'entrada'
+                  ? 'bg-emerald-600 text-white shadow'
+                  : 'text-slate-400 hover:text-emerald-300'
+              }`}
+            >
+              <UserPlus className="w-3 h-3" />
+              <span>Entradas</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setFiltroTipo('salida')}
+              className={`px-3 py-1 rounded-lg font-semibold transition cursor-pointer flex items-center gap-1 ${
+                filtroTipo === 'salida'
+                  ? 'bg-rose-600 text-white shadow'
+                  : 'text-slate-400 hover:text-rose-300'
+              }`}
+            >
+              <UserMinus className="w-3 h-3" />
+              <span>Salidas</span>
+            </button>
+          </div>
+
+          {/* Filtro por puerta */}
+          {puertasDisponibles.length > 0 && (
+            <div className="flex items-center gap-1 bg-slate-950 px-2 py-1 rounded-xl border border-slate-800 text-xs">
+              <DoorOpen className="w-3.5 h-3.5 text-slate-400" />
+              <select
+                value={filtroPuerta}
+                onChange={(e) => setFiltroPuerta(e.target.value)}
+                className="bg-transparent text-slate-200 text-xs focus:outline-none cursor-pointer"
+              >
+                <option value="todas" className="bg-slate-900 text-white">Todas las puertas</option>
+                {puertasDisponibles.map((p) => (
+                  <option key={p} value={p} className="bg-slate-900 text-white">
+                    {p}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
 
-        <div className="relative flex-1 sm:max-w-xs">
+        <div className="relative flex-1 md:max-w-xs">
           <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
             type="text"
-            placeholder="Buscar por hora (ej. 10:30)..."
+            placeholder="Buscar por hora o puerta..."
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
             className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
@@ -146,8 +178,9 @@ export const BitacoraEventosUni: React.FC<BitacoraEventosUniProps> = ({
               <tr>
                 <th className="py-2.5 px-3">Hora</th>
                 <th className="py-2.5 px-3">Movimiento</th>
+                <th className="py-2.5 px-3">Punto de Acceso</th>
                 <th className="py-2.5 px-3 text-center">Cantidad</th>
-                <th className="py-2.5 px-3 text-center">Aforo en el bloque</th>
+                <th className="py-2.5 px-3 text-center">Aforo en bloque</th>
                 <th className="py-2.5 px-3 text-right">Acción</th>
               </tr>
             </thead>
@@ -159,6 +192,8 @@ export const BitacoraEventosUni: React.FC<BitacoraEventosUniProps> = ({
                   minute: '2-digit',
                   second: '2-digit'
                 });
+                const puertaTexto = ev.puerta || 'Entrada Frontal';
+                const esLateral = puertaTexto.toLowerCase().includes('lateral');
 
                 return (
                   <tr key={ev.id} className="hover:bg-slate-800/40 transition">
@@ -184,6 +219,18 @@ export const BitacoraEventosUni: React.FC<BitacoraEventosUniProps> = ({
                             <span>SALIDA</span>
                           </>
                         )}
+                      </span>
+                    </td>
+                    <td className="py-2 px-3 font-sans">
+                      <span
+                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold border ${
+                          esLateral
+                            ? 'bg-amber-500/10 text-amber-300 border-amber-500/30'
+                            : 'bg-slate-800 text-slate-300 border-slate-700/60'
+                        }`}
+                      >
+                        <DoorOpen className="w-3 h-3 opacity-70" />
+                        <span>{puertaTexto}</span>
                       </span>
                     </td>
                     <td className="py-2 px-3 text-center font-bold">

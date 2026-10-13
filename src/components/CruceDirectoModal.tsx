@@ -151,7 +151,7 @@ export const CruceDirectoModal: React.FC<CruceDirectoModalProps> = ({
             </div>
           </div>
 
-          {/* 2. Visualización Automática de Fase Semafórica (96s) */}
+          {/* 2. Visualización Automática de Fase Semafórica (95s) */}
           <div>
             <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
               2. Fase Semafórica (Determinación Automática):

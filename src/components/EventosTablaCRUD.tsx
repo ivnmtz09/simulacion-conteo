@@ -648,7 +648,7 @@ export const EventosTablaCRUD: React.FC<EventosTablaCRUDProps> = ({
               {formTipoVehiculo !== 'peaton' && formTipoRegistro === 'salida_cola' && (
                 <div>
                   <label className="block font-semibold text-slate-300 mb-1">
-                    Fase Semafórica al Cruce (Ciclo 96s)
+                    Fase Semafórica al Cruce (Ciclo 95s)
                   </label>
                   <select
                     value={formFaseCruce}
@@ -660,7 +660,7 @@ export const EventosTablaCRUD: React.FC<EventosTablaCRUDProps> = ({
                     className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white font-medium focus:outline-none focus:border-blue-500"
                   >
                     <option value="verde">Verde (0-18s) - Respeta</option>
-                    <option value="amarillo">Amarillo (18-21s / 93-96s) - Precaución</option>
+                    <option value="amarillo">Amarillo (18-21s / 93-95s) - Precaución</option>
                     <option value="rojo">Rojo (21-93s) - Se vuela / Infracción</option>
                   </select>
                 </div>

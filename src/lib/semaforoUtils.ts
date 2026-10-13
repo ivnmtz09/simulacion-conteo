@@ -1,10 +1,10 @@
 import type { FaseSemaforo, CategoriaSalidaVehiculo } from '../types/conteo';
 
-export const DURACION_CICLO_SEG = 96;
+export const DURACION_CICLO_SEG = 95;
 export const DURACION_VERDE_SEG = 18;
 export const DURACION_AMARILLO_SEG = 3;
 export const DURACION_ROJO_SEG = 72;
-export const DURACION_AMARILLO_FINAL_SEG = 3;
+export const DURACION_AMARILLO_FINAL_SEG = 2;
 
 export interface EstadoSemaforoCalculado {
   sincronizado: boolean;
@@ -45,13 +45,13 @@ export function normalizarTimestampMs(valor: unknown): number | null {
 
 /**
  * Calcula determinísticamente la fase y estado actual del semáforo a partir
- * de un ciclo continuo de 96 segundos (18s Verde, 3s Amarillo, 72s Rojo, 3s Amarillo pre-verde).
+ * de un ciclo continuo de 95 segundos (18s Verde, 3s Amarillo -> Rojo, 72s Rojo, 2s Amarillo -> Verde).
  * 
  * Intervalos:
  * [0, 18)   -> Verde (18 segundos)
- * [18, 21)  -> Amarillo post-verde (3 segundos)
+ * [18, 21)  -> Amarillo post-verde hacia rojo (3 segundos)
  * [21, 93)  -> Rojo (72 segundos)
- * [93, 96)  -> Amarillo pre-verde (3 segundos)
+ * [93, 95)  -> Amarillo pre-verde hacia verde (2 segundos)
  */
 export function calcularEstadoSemaforo(
   timestampMs: number,
@@ -91,7 +91,7 @@ export function calcularEstadoSemaforo(
     fase = 'verde';
     segundosRestantesFase = Math.max(1, Math.ceil(limVerde - segundoEnCicloExacto));
   } else if (segundoEnCicloExacto < limAmarillo1) {
-    // 18s a 21s -> Amarillo (post-verde)
+    // 18s a 21s -> Amarillo (post-verde hacia rojo)
     fase = 'amarillo';
     segundosRestantesFase = Math.max(1, Math.ceil(limAmarillo1 - segundoEnCicloExacto));
   } else if (segundoEnCicloExacto < limRojo) {
@@ -99,7 +99,7 @@ export function calcularEstadoSemaforo(
     fase = 'rojo';
     segundosRestantesFase = Math.max(1, Math.ceil(limRojo - segundoEnCicloExacto));
   } else {
-    // 93s a 96s -> Amarillo (pre-verde de cierre de ciclo)
+    // 93s a 95s -> Amarillo (pre-verde hacia verde de cierre de ciclo)
     fase = 'amarillo';
     segundosRestantesFase = Math.max(1, Math.ceil(DURACION_CICLO_SEG - segundoEnCicloExacto));
   }

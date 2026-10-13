@@ -28,6 +28,7 @@ import type {
   TipoTransitoUni,
   MetricasAforoUni
 } from '../../types/aforoUniversitario';
+import { obtenerPuertasPorBloque } from '../../types/aforoUniversitario';
 import { ControlesConteoTouch } from './ControlesConteoTouch';
 import { MetricasAforoCards } from './MetricasAforoCards';
 import { GraficoFlujoUni } from './GraficoFlujoUni';
@@ -51,18 +52,31 @@ export const DashboardAforoUni: React.FC<DashboardAforoUniProps> = ({
   const [sesionActiva, setSesionActiva] = useState<SesionAforoUni | null>(null);
   const [eventos, setEventos] = useState<EventoAforoUni[]>([]);
   const [todosLosEventos, setTodosLosEventos] = useState<EventoAforoUni[]>([]);
+  const [puertaManual, setPuertaManual] = useState<string | null>(null);
 
   // Modales
   const [modalNuevaSesionAbierto, setModalNuevaSesionAbierto] = useState(false);
   const [modalFinalizarAbierto, setModalFinalizarAbierto] = useState(false);
 
-  // 1. Escuchar sesiones de aforo universitario creadas por janiez@uniguajira.edu.co
+  // Derivar puertas disponibles y puerta activa de la sesión activa
+  const puertasDisponibles = useMemo(() => {
+    return sesionActiva ? obtenerPuertasPorBloque(sesionActiva.bloque) : ['Entrada Frontal', 'Entrada Trasera'];
+  }, [sesionActiva]);
+
+  const puertaActiva = useMemo(() => {
+    if (puertaManual && puertasDisponibles.includes(puertaManual)) {
+      return puertaManual;
+    }
+    if (sesionActiva?.puertaAcceso && puertasDisponibles.includes(sesionActiva.puertaAcceso)) {
+      return sesionActiva.puertaAcceso;
+    }
+    return puertasDisponibles[0] || 'Entrada Frontal';
+  }, [puertaManual, puertasDisponibles, sesionActiva]);
+
+  // 1. Escuchar sesiones de aforo universitario de todo el campus
   useEffect(() => {
     try {
-      const q = query(
-        collection(db, 'sesionesAforoUni'),
-        where('usuario', '==', usuarioActual)
-      );
+      const q = collection(db, 'sesionesAforoUni');
 
       const unsub = onSnapshot(
         q,
@@ -144,13 +158,10 @@ export const DashboardAforoUni: React.FC<DashboardAforoUniProps> = ({
     }
   }, [sesionIdActiva]);
 
-  // 3. Listener global de todos los eventos del usuario (para reportes del historial)
+  // 3. Listener global de todos los eventos del aforo universitario (para reportes del historial)
   useEffect(() => {
     try {
-      const q = query(
-        collection(db, 'eventosAforoUni'),
-        where('usuario', '==', usuarioActual)
-      );
+      const q = collection(db, 'eventosAforoUni');
 
       const unsub = onSnapshot(
         q,
@@ -180,15 +191,20 @@ export const DashboardAforoUni: React.FC<DashboardAforoUniProps> = ({
     let salidas = 0;
     let pico = aforoIni;
     let horaPico: string | null = null;
+    const entradasPorPuerta: Record<string, number> = {};
+    const salidasPorPuerta: Record<string, number> = {};
 
     const activos = eventos.filter((e) => !e.enPapelera);
     activos.forEach((e) => {
+      const p = e.puerta || 'Entrada Frontal';
       if (e.tipo === 'entrada') {
         entradas += e.cantidad;
         aforo += e.cantidad;
+        entradasPorPuerta[p] = (entradasPorPuerta[p] || 0) + e.cantidad;
       } else {
         salidas += e.cantidad;
         aforo = Math.max(0, aforo - e.cantidad);
+        salidasPorPuerta[p] = (salidasPorPuerta[p] || 0) + e.cantidad;
       }
       if (aforo > pico) {
         pico = aforo;
@@ -205,14 +221,17 @@ export const DashboardAforoUni: React.FC<DashboardAforoUniProps> = ({
       totalSalidas: salidas,
       volumenTransito: entradas + salidas,
       aforoPico: pico,
-      horaPico
+      horaPico,
+      entradasPorPuerta,
+      salidasPorPuerta
     };
   }, [eventos, sesionActiva]);
 
-  // 5. Registrar evento de tránsito (Optimista <0ms + Firestore)
-  const handleRegistrarEvento = async (tipo: TipoTransitoUni, cantidad: number) => {
+  // 5. Registrar evento de tránsito con origen de acceso (Optimista <0ms + Firestore)
+  const handleRegistrarEvento = async (tipo: TipoTransitoUni, cantidad: number, puerta?: string) => {
     if (!sesionActiva) return;
 
+    const puertaEfectiva = puerta || puertaActiva || 'Entrada Frontal';
     const delta = tipo === 'entrada' ? cantidad : -cantidad;
     const aforoResultante = Math.max(0, metricas.aforoActual + delta);
     const ahora = Date.now();
@@ -223,6 +242,7 @@ export const DashboardAforoUni: React.FC<DashboardAforoUniProps> = ({
       usuario: usuarioActual,
       tipo,
       cantidad,
+      puerta: puertaEfectiva,
       aforoMomento: aforoResultante,
       timestamp: ahora,
       fechaHora: new Date(ahora).toISOString()
@@ -309,6 +329,7 @@ export const DashboardAforoUni: React.FC<DashboardAforoUniProps> = ({
       usuario: usuarioActual,
       tipo,
       cantidad: cant,
+      puerta: puertaActiva,
       aforoMomento: nuevoAforo,
       timestamp: ahora,
       fechaHora: new Date(ahora).toISOString(),
@@ -650,6 +671,9 @@ export const DashboardAforoUni: React.FC<DashboardAforoUniProps> = ({
                   onAjustarAforoManual={handleAjustarAforoManual}
                   puedeDeshacer={eventos.filter((e) => !e.enPapelera).length > 0}
                   aforoActual={metricas.aforoActual}
+                  bloque={sesionActiva.bloque}
+                  puertaActiva={puertaActiva}
+                  onCambiarPuerta={setPuertaManual}
                 />
 
                 {/* Gráfico de flujo e intervalos de tiempo */}
