@@ -12,9 +12,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'apple-touch-icon.png', 'pwa-192x192.png', 'pwa-512x512.png'],
       manifest: {
-        name: 'Aforo Vial - PTV Vissim',
-        short_name: 'Aforo Vial',
-        description: 'PWA de recolección de aforo vial para simulación PTV Vissim',
+        name: 'Sistema de Aforo y Conteo - Uniguajira',
+        short_name: 'Aforo & Conteo',
+        description: 'Sistema integral de aforo vial (Docente: Marlyn Aaron) y aforo universitario (Docente: Robert Quintero) - Uniguajira',
         theme_color: '#0f172a',
         background_color: '#0f172a',
         display: 'standalone',

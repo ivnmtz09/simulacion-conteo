@@ -103,18 +103,36 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           </div>
         ) : (
           /* ESTADO: PANTALLA PRINCIPAL DE INICIO CON GOOGLE */
-          <div className="space-y-5">
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-blue-600 to-emerald-500 flex items-center justify-center mx-auto shadow-md shadow-blue-500/20 text-white font-black text-xl">
-              AV
+          <div className="space-y-4">
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-blue-600 via-sky-600 to-emerald-500 flex flex-col items-center justify-center mx-auto shadow-lg shadow-blue-500/20 text-white border border-white/20">
+              <span className="font-black text-xl leading-none">AC</span>
+              <span className="text-[8px] font-extrabold uppercase tracking-widest opacity-90">Uniguajira</span>
             </div>
 
             <div>
               <h2 className="text-xl sm:text-2xl font-black text-white">
-                Iniciar Sesión
+                Sistema de Aforo y Conteo
               </h2>
               <p className="text-xs text-slate-400 mt-1">
-                Aforo Vial - Simulación de Tráfico PTV Vissim
+                Universidad de La Guajira • Tránsito Vial & Aforo Universitario
               </p>
+            </div>
+
+            {/* Énfasis en los Docentes Líderes */}
+            <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-2.5 text-left text-xs space-y-1.5">
+              <div className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                Docentes Asesores del Proyecto
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-[11px]">
+                <div className="bg-blue-500/10 border border-blue-500/20 p-2 rounded-xl">
+                  <span className="text-blue-300 font-medium block text-[10px]">Aforo Vial</span>
+                  <span className="font-bold text-white text-xs">Marlyn Aaron</span>
+                </div>
+                <div className="bg-emerald-500/10 border border-emerald-500/20 p-2 rounded-xl">
+                  <span className="text-emerald-300 font-medium block text-[10px]">Aforo Universitario</span>
+                  <span className="font-bold text-white text-xs">Robert Quintero</span>
+                </div>
+              </div>
             </div>
 
             <div className="bg-slate-950/60 border border-slate-800/80 rounded-2xl p-3 text-left">

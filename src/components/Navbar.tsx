@@ -57,16 +57,19 @@ export const Navbar: React.FC<NavbarProps> = ({
         {/* Top bar: Brand + Session / Banner + User actions */}
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-600 to-emerald-500 flex items-center justify-center font-black text-white text-base shadow-sm shrink-0">
-              AV
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-600 via-sky-600 to-emerald-500 flex items-center justify-center font-black text-white text-xs shadow-sm shrink-0 border border-white/20">
+              AC
             </div>
             <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="font-bold tracking-tight text-sm sm:text-base text-white">
-                  Aforo Vial
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-extrabold tracking-tight text-sm sm:text-base text-white">
+                  Aforo & Conteo
                 </span>
-                <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30 shrink-0">
-                  PTV Vissim
+                <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30 shrink-0">
+                  Módulo Vial
+                </span>
+                <span className="hidden xl:inline text-[10px] text-slate-400 bg-slate-950/80 border border-slate-800 px-2 py-0.5 rounded-full">
+                  Docente Aforo Vial: <strong className="text-blue-300">Marlyn Aaron</strong>
                 </span>
               </div>
 

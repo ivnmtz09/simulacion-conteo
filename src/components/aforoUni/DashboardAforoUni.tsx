@@ -443,17 +443,20 @@ export const DashboardAforoUni: React.FC<DashboardAforoUniProps> = ({
           <div className="flex items-center justify-between gap-3">
             {/* Branding Uniguajira + Aforo de Bloque */}
             <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center font-black text-white text-base shadow-sm shrink-0">
-                <Building2 className="w-4 h-4 text-white" />
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-emerald-600 via-teal-600 to-sky-500 flex items-center justify-center font-black text-white text-xs shadow-sm shrink-0 border border-white/20">
+                AC
               </div>
 
               <div className="min-w-0">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-extrabold tracking-tight text-sm sm:text-base text-white">
-                    Uniguajira
+                    Aforo & Conteo
                   </span>
                   <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shrink-0">
-                    Aforo de Bloque
+                    Aforo Universitario
+                  </span>
+                  <span className="hidden xl:inline text-[10px] text-slate-400 bg-slate-950/80 border border-slate-800 px-2 py-0.5 rounded-full">
+                    Docente Aforo Universitario: <strong className="text-emerald-300">Robert Quintero</strong>
                   </span>
                 </div>
 

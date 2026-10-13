@@ -29,7 +29,7 @@ export const NotFoundPage: React.FC<NotFoundPageProps> = ({
             Página no encontrada
           </h1>
           <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
-            La ruta solicitada no existe o fue movida en la plataforma de Aforo Vial.
+            La ruta solicitada no existe o fue movida en la plataforma de Aforo y Conteo.
           </p>
         </div>
 
@@ -56,7 +56,7 @@ export const NotFoundPage: React.FC<NotFoundPageProps> = ({
               className="touch-btn w-full py-3.5 px-6 rounded-2xl font-bold text-sm bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2 transition cursor-pointer active:scale-98"
             >
               <LogIn className="w-4 h-4" />
-              <span>Iniciar sesión en Aforo Vial</span>
+              <span>Iniciar sesión en Aforo & Conteo</span>
             </button>
           )}
 
