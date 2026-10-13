@@ -10,7 +10,9 @@ import {
   ListFilter,
   History,
   ShieldCheck,
-  DoorOpen
+  DoorOpen,
+  Car,
+  Users
 } from 'lucide-react';
 import {
   db,
@@ -41,11 +43,15 @@ import { exportarAforoUniXLSX, exportarAforoUniCSV } from '../../lib/exportAforo
 interface DashboardAforoUniProps {
   usuarioActual: string;
   onCerrarSesionAuth: () => void;
+  moduloActivo?: 'vial' | 'universitario';
+  onCambiarModulo?: (modulo: 'vial' | 'universitario') => void;
 }
 
 export const DashboardAforoUni: React.FC<DashboardAforoUniProps> = ({
   usuarioActual,
-  onCerrarSesionAuth
+  onCerrarSesionAuth,
+  moduloActivo = 'universitario',
+  onCambiarModulo
 }) => {
   const [vistaActiva, setVistaActiva] = useState<'conteo' | 'bitacora' | 'historial'>('conteo');
   const [sesiones, setSesiones] = useState<SesionAforoUni[]>([]);
@@ -452,9 +458,38 @@ export const DashboardAforoUni: React.FC<DashboardAforoUniProps> = ({
                   <span className="font-extrabold tracking-tight text-sm sm:text-base text-white">
                     Aforo & Conteo
                   </span>
-                  <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shrink-0">
-                    Aforo Universitario
-                  </span>
+                  {onCambiarModulo ? (
+                    <div className="inline-flex items-center p-0.5 rounded-xl bg-slate-950 border border-slate-800 text-[11px] shadow-inner">
+                      <button
+                        type="button"
+                        onClick={() => onCambiarModulo('vial')}
+                        className={`touch-btn flex items-center gap-1 px-2 py-0.5 rounded-lg font-bold transition cursor-pointer ${
+                          moduloActivo === 'vial'
+                            ? 'bg-blue-600 text-white shadow-sm'
+                            : 'text-slate-400 hover:text-slate-200'
+                        }`}
+                      >
+                        <Car className="w-3 h-3" />
+                        <span>Vial</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onCambiarModulo('universitario')}
+                        className={`touch-btn flex items-center gap-1 px-2 py-0.5 rounded-lg font-bold transition cursor-pointer ${
+                          moduloActivo === 'universitario'
+                            ? 'bg-emerald-600 text-white shadow-sm'
+                            : 'text-slate-400 hover:text-slate-200'
+                        }`}
+                      >
+                        <Users className="w-3 h-3" />
+                        <span>Universitario</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shrink-0">
+                      Aforo Universitario
+                    </span>
+                  )}
                   <span className="hidden xl:inline text-[10px] text-slate-400 bg-slate-950/80 border border-slate-800 px-2 py-0.5 rounded-full">
                     Docente Aforo Universitario: <strong className="text-emerald-300">Robert Quintero</strong>
                   </span>

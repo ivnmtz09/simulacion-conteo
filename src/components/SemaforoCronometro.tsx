@@ -6,8 +6,9 @@ import {
   Clock,
   Info,
   X,
-  Disc,
-  Play
+  Play,
+  Zap,
+  Activity
 } from 'lucide-react';
 import type { SesionConteo } from '../types/conteo';
 import {
@@ -81,56 +82,72 @@ export const SemaforoCronometro: React.FC<SemaforoCronometroProps> = ({
     }
   };
 
+  // Parámetros matemáticos para el Tacómetro Circular SVG
+  // Radio 92px, centro (120, 120), viewBox "0 0 240 240"
+  const SVG_R = 92;
+  const SVG_CX = 120;
+  const SVG_CY = 120;
+  const CIRCUNFERENCIA = 2 * Math.PI * SVG_R; // ~578.05 px
+
+  // Longitudes de arco proporcionales al ciclo de 95s
+  const arcVerde = (DURACION_VERDE_SEG / DURACION_CICLO_SEG) * CIRCUNFERENCIA; // 18s -> ~109.5px
+  const arcAmarillo1 = (DURACION_AMARILLO_SEG / DURACION_CICLO_SEG) * CIRCUNFERENCIA; // 3s -> ~18.25px
+  const arcRojo = (DURACION_ROJO_SEG / DURACION_CICLO_SEG) * CIRCUNFERENCIA; // 72s -> ~436.8px
+  const arcAmarillo2 = (DURACION_AMARILLO_FINAL_SEG / DURACION_CICLO_SEG) * CIRCUNFERENCIA; // 2s -> ~12.17px
+
+  const GAP_SEGMENTO = 2.5; // Brecha estética entre segmentos físicos
+
+  // Segundo exacto dentro del ciclo continuo [0, 95)
+  const secExacto = estado.segundoEnCicloExacto ?? 0;
+
+  // Ángulo de la aguja / cursor luminoso (0s arriba en -90°)
+  const anguloCursorDeg = (secExacto / DURACION_CICLO_SEG) * 360 - 90;
+  const anguloCursorRad = (anguloCursorDeg * Math.PI) / 180;
+  const cursorX = SVG_CX + SVG_R * Math.cos(anguloCursorRad);
+  const cursorY = SVG_CY + SVG_R * Math.sin(anguloCursorRad);
+
+  // Alerta de cambio inminente en los últimos 3 segundos de cualquier fase
+  const esAlertaCambio = estado.segundosRestantesFase !== null && estado.segundosRestantesFase <= 3;
+
+  // Determinación de subfase de amarillo (post-verde o pre-verde)
+  const esAmarilloPostVerde = estado.fase === 'amarillo' && secExacto < 21;
+  const esAmarilloPreVerde = estado.fase === 'amarillo' && secExacto >= 93;
+
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-3xl p-4 sm:p-5 shadow-xl relative overflow-hidden transition-all">
-      {/* Fondo degradado suave según fase */}
+    <div className="relative bg-gradient-to-b from-slate-900/95 via-slate-900/90 to-slate-950/95 border border-slate-700/60 rounded-3xl p-4 sm:p-5 shadow-2xl overflow-hidden backdrop-blur-xl transition-all">
+      {/* Resplandor ambiental suave según la fase activa */}
       <div
-        className={`absolute inset-0 opacity-10 pointer-events-none transition-colors duration-700 ${
+        className={`absolute -top-24 -right-24 w-80 h-80 rounded-full blur-3xl pointer-events-none transition-all duration-700 ${
           estado.fase === 'verde'
-            ? 'bg-emerald-500'
+            ? 'bg-emerald-500/15'
             : estado.fase === 'amarillo'
-            ? 'bg-amber-500'
+            ? 'bg-amber-500/15'
             : estado.fase === 'rojo'
-            ? 'bg-rose-500'
-            : 'bg-slate-700'
+            ? 'bg-rose-500/15'
+            : 'bg-slate-700/10'
         }`}
       />
 
-      {/* ENCABEZADO */}
+      {/* ENCABEZADO SUPERIOR */}
       <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-800/80 relative">
         <div className="flex items-center gap-3">
-          {/* Luz semafórica física viva */}
-          <div className="p-1.5 rounded-2xl bg-slate-950 border border-slate-800 flex items-center gap-1.5 shadow-inner">
-            <span
-              className={`w-3.5 h-3.5 rounded-full transition-all duration-300 ${
-                estado.fase === 'rojo'
-                  ? 'bg-rose-500 shadow-[0_0_12px_rgba(244,63,94,0.9)] ring-2 ring-rose-400'
-                  : 'bg-rose-950/80 opacity-40'
-              }`}
-              title="Luz Roja (72s)"
-            />
-            <span
-              className={`w-3.5 h-3.5 rounded-full transition-all duration-300 ${
-                estado.fase === 'amarillo'
-                  ? 'bg-amber-400 shadow-[0_0_12px_rgba(245,158,11,0.9)] ring-2 ring-amber-300'
-                  : 'bg-amber-950/80 opacity-40'
-              }`}
-              title="Luz Amarilla (3s post-verde / 2s pre-verde)"
-            />
-            <span
-              className={`w-3.5 h-3.5 rounded-full transition-all duration-300 ${
-                estado.fase === 'verde'
-                  ? 'bg-emerald-400 shadow-[0_0_12px_rgba(16,185,129,0.9)] ring-2 ring-emerald-300'
-                  : 'bg-emerald-950/80 opacity-40'
-              }`}
-              title="Luz Verde (18s)"
-            />
+          {/* Mini badge de estado general */}
+          <div className="w-10 h-10 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-center shadow-inner">
+            <Activity className={`w-5 h-5 ${
+              estado.fase === 'verde'
+                ? 'text-emerald-400 animate-pulse'
+                : estado.fase === 'amarillo'
+                ? 'text-amber-400 animate-pulse'
+                : estado.fase === 'rojo'
+                ? 'text-rose-400 animate-pulse'
+                : 'text-slate-500'
+            }`} />
           </div>
 
           <div>
             <div className="flex items-center gap-2">
-              <h3 className="text-base font-extrabold text-white tracking-tight flex items-center gap-2">
-                <span>Ciclo Semafórico Continuo</span>
+              <h3 className="text-base font-extrabold text-white tracking-tight">
+                Ciclo Semafórico Continuo
               </h3>
               <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-300 border border-blue-500/30 font-bold">
                 {DURACION_CICLO_SEG}s (18V / 3A / 72R / 2A)
@@ -150,7 +167,7 @@ export const SemaforoCronometro: React.FC<SemaforoCronometroProps> = ({
             <button
               type="button"
               onClick={() => setModalResincronizarAbierto(true)}
-              className="touch-btn text-xs font-bold px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 flex items-center gap-1.5 transition cursor-pointer hover:border-slate-500"
+              className="touch-btn text-xs font-bold px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 flex items-center gap-1.5 transition cursor-pointer hover:border-slate-500 active:scale-95"
               title="Ajustar el tiempo cero si el semáforo en campo se ha desfasado"
             >
               <RotateCcw className="w-3.5 h-3.5 text-blue-400" />
@@ -178,121 +195,361 @@ export const SemaforoCronometro: React.FC<SemaforoCronometroProps> = ({
         </div>
       )}
 
-      {/* CONTENIDO PRINCIPAL: ESTADO EN VIVO vs PROMPT SIN SINCRONIZAR */}
+      {/* CONTENIDO PRINCIPAL: HUD TACÓMETRO DINÁMICO */}
       {estado.sincronizado ? (
-        <div className="mt-3.5 space-y-3 relative">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {/* Panel de Fase Actual */}
-            <div
-              className={`p-3 rounded-2xl border flex items-center justify-between transition-all duration-500 ${
-                estado.fase === 'verde'
-                  ? 'bg-emerald-950/40 border-emerald-500/50 shadow-[0_0_20px_rgba(16,185,129,0.25)]'
-                  : estado.fase === 'amarillo'
-                  ? 'bg-amber-950/40 border-amber-500/50 shadow-[0_0_20px_rgba(245,158,11,0.25)]'
-                  : 'bg-rose-950/40 border-rose-500/50 shadow-[0_0_20px_rgba(244,63,94,0.25)]'
-              }`}
-            >
-              <div className="flex items-center gap-3">
+        <div className="mt-4 space-y-4 relative">
+          {/* BANNER DE ALERTA: ÚLTIMOS 3 SEGUNDOS DE CADA FASE */}
+          {esAlertaCambio && (
+            <div className="p-2.5 rounded-2xl bg-amber-500/20 border border-amber-400/80 text-amber-200 text-xs font-bold flex items-center justify-between shadow-lg shadow-amber-500/15 animate-pulse">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping" />
+                <span>
+                  {estado.fase === 'verde'
+                    ? '⚠️ CAMBIO INMINENTE: Verde finalizando ➔ Fase Amarilla (3s)'
+                    : estado.fase === 'amarillo' && esAmarilloPostVerde
+                    ? '🛑 CAMBIO INMINENTE: Amarillo finalizando ➔ Fase Roja (72s)'
+                    : estado.fase === 'rojo'
+                    ? '⚡ PREPARACIÓN: Rojo finalizando ➔ Amarillo de arranque (2s)'
+                    : '🟢 CAMBIO INMINENTE: Amarillo finalizando ➔ Fase Verde (18s)'}
+                </span>
+              </div>
+              <span className="font-mono text-sm font-black bg-amber-400 text-slate-950 px-2 py-0.5 rounded-lg">
+                {estado.segundosRestantesFase}s
+              </span>
+            </div>
+          )}
+
+          {/* GRID CENTRAL: LENTES LED FÍSICAS + TACÓMETRO CIRCULAR + MÉTRICAS */}
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
+            {/* 1. LENTES LED FÍSICAS CON RESPLANDOR REAL */}
+            <div className="md:col-span-3 flex md:flex-col items-center justify-around md:justify-center gap-3 bg-slate-950/80 border border-slate-800/80 rounded-2xl p-3 shadow-inner">
+              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest hidden md:block text-center">
+                Semáforo Real
+              </div>
+
+              {/* LUZ ROJA (72s) */}
+              <div className="flex items-center md:flex-col gap-2">
                 <div
-                  className={`w-10 h-10 rounded-2xl flex items-center justify-center transition-all ${
-                    estado.fase === 'verde'
-                      ? 'bg-emerald-500/20 text-emerald-400 shadow-[0_0_16px_rgba(16,185,129,0.5)] ring-1 ring-emerald-500/40'
-                      : estado.fase === 'amarillo'
-                      ? 'bg-amber-500/20 text-amber-400 shadow-[0_0_16px_rgba(245,158,11,0.5)] ring-1 ring-amber-500/40'
-                      : 'bg-rose-500/20 text-rose-400 shadow-[0_0_16px_rgba(244,63,94,0.5)] ring-1 ring-rose-500/40'
+                  className={`w-14 h-14 rounded-full relative flex items-center justify-center transition-all duration-300 ${
+                    estado.fase === 'rojo'
+                      ? 'bg-rose-500 shadow-[0_0_28px_rgba(244,63,94,1),0_0_55px_rgba(244,63,94,0.6)] ring-4 ring-rose-400/80'
+                      : 'bg-rose-950/30 border border-rose-900/40 opacity-30'
                   }`}
+                  title="Luz Roja de Detención (72 segundos: 21s a 93s)"
                 >
-                  <Disc className="w-5 h-5 animate-pulse" />
-                </div>
-                <div>
-                  <div className="text-[10px] uppercase font-bold tracking-wider text-slate-400">
-                    Fase en Curso
+                  {/* Textura óptica interior del lente LED */}
+                  <div className="w-10 h-10 rounded-full border border-white/20 flex items-center justify-center">
+                    <span className="w-4 h-4 rounded-full bg-white/20" />
                   </div>
-                  <div
-                    className={`text-base font-black uppercase tracking-wide ${
+                </div>
+                <div className="text-center">
+                  <div className={`text-[10px] font-black uppercase ${estado.fase === 'rojo' ? 'text-rose-400' : 'text-slate-500'}`}>
+                    Rojo
+                  </div>
+                  <div className="text-[9px] font-mono text-slate-500">72s</div>
+                </div>
+              </div>
+
+              {/* LUZ AMARILLA (3s post-verde / 2s pre-verde) */}
+              <div className="flex items-center md:flex-col gap-2">
+                <div
+                  className={`w-14 h-14 rounded-full relative flex items-center justify-center transition-all duration-300 ${
+                    estado.fase === 'amarillo'
+                      ? 'bg-amber-400 shadow-[0_0_28px_rgba(245,158,11,1),0_0_55px_rgba(245,158,11,0.6)] ring-4 ring-amber-300/80'
+                      : 'bg-amber-950/30 border border-amber-900/40 opacity-30'
+                  }`}
+                  title="Luz Ámbar de Precaución (3s post-verde / 2s pre-verde)"
+                >
+                  <div className="w-10 h-10 rounded-full border border-white/20 flex items-center justify-center">
+                    <span className="w-4 h-4 rounded-full bg-white/20" />
+                  </div>
+                </div>
+                <div className="text-center">
+                  <div className={`text-[10px] font-black uppercase ${estado.fase === 'amarillo' ? 'text-amber-400' : 'text-slate-500'}`}>
+                    Ámbar
+                  </div>
+                  <div className="text-[9px] font-mono text-slate-500">
+                    {esAmarilloPreVerde ? '2s' : '3s'}
+                  </div>
+                </div>
+              </div>
+
+              {/* LUZ VERDE (18s) */}
+              <div className="flex items-center md:flex-col gap-2">
+                <div
+                  className={`w-14 h-14 rounded-full relative flex items-center justify-center transition-all duration-300 ${
+                    estado.fase === 'verde'
+                      ? 'bg-emerald-400 shadow-[0_0_28px_rgba(16,185,129,1),0_0_55px_rgba(16,185,129,0.6)] ring-4 ring-emerald-300/80'
+                      : 'bg-emerald-950/30 border border-emerald-900/40 opacity-30'
+                  }`}
+                  title="Luz Verde de Paso (18 segundos: 0s a 18s)"
+                >
+                  <div className="w-10 h-10 rounded-full border border-white/20 flex items-center justify-center">
+                    <span className="w-4 h-4 rounded-full bg-white/20" />
+                  </div>
+                </div>
+                <div className="text-center">
+                  <div className={`text-[10px] font-black uppercase ${estado.fase === 'verde' ? 'text-emerald-400' : 'text-slate-500'}`}>
+                    Verde
+                  </div>
+                  <div className="text-[9px] font-mono text-slate-500">18s</div>
+                </div>
+              </div>
+            </div>
+
+            {/* 2. TACÓMETRO CIRCULAR SVG DINÁMICO */}
+            <div className="md:col-span-6 flex flex-col items-center justify-center relative py-2">
+              <div className="relative w-64 h-64 sm:w-72 sm:h-72 flex items-center justify-center">
+                {/* SVG Dial */}
+                <svg
+                  className="w-full h-full transform -rotate-90 filter drop-shadow-xl"
+                  viewBox="0 0 240 240"
+                >
+                  {/* Track base de fondo */}
+                  <circle
+                    cx={SVG_CX}
+                    cy={SVG_CY}
+                    r={SVG_R}
+                    fill="none"
+                    stroke="#0f172a"
+                    strokeWidth="14"
+                  />
+                  <circle
+                    cx={SVG_CX}
+                    cy={SVG_CY}
+                    r={SVG_R}
+                    fill="none"
+                    stroke="#1e293b"
+                    strokeWidth="12"
+                    strokeOpacity="0.8"
+                  />
+
+                  {/* 1. Segmento VERDE: [0, 18s] */}
+                  <circle
+                    cx={SVG_CX}
+                    cy={SVG_CY}
+                    r={SVG_R}
+                    fill="none"
+                    stroke="#10b981"
+                    strokeWidth={estado.fase === 'verde' ? 14 : 11}
+                    strokeDasharray={`${Math.max(0, arcVerde - GAP_SEGMENTO)} ${CIRCUNFERENCIA}`}
+                    strokeDashoffset={-GAP_SEGMENTO / 2}
+                    className={`transition-all duration-300 ${
                       estado.fase === 'verde'
-                        ? 'text-emerald-300'
+                        ? 'opacity-100 filter drop-shadow-[0_0_10px_rgba(16,185,129,0.9)]'
+                        : 'opacity-25'
+                    }`}
+                  />
+
+                  {/* 2. Segmento AMARILLO 1 (post-verde): [18s, 21s] */}
+                  <circle
+                    cx={SVG_CX}
+                    cy={SVG_CY}
+                    r={SVG_R}
+                    fill="none"
+                    stroke="#f59e0b"
+                    strokeWidth={esAmarilloPostVerde ? 14 : 11}
+                    strokeDasharray={`${Math.max(0, arcAmarillo1 - GAP_SEGMENTO)} ${CIRCUNFERENCIA}`}
+                    strokeDashoffset={-(arcVerde + GAP_SEGMENTO / 2)}
+                    className={`transition-all duration-300 ${
+                      esAmarilloPostVerde
+                        ? 'opacity-100 filter drop-shadow-[0_0_10px_rgba(245,158,11,0.9)]'
+                        : 'opacity-25'
+                    }`}
+                  />
+
+                  {/* 3. Segmento ROJO: [21s, 93s] */}
+                  <circle
+                    cx={SVG_CX}
+                    cy={SVG_CY}
+                    r={SVG_R}
+                    fill="none"
+                    stroke="#f43f5e"
+                    strokeWidth={estado.fase === 'rojo' ? 14 : 11}
+                    strokeDasharray={`${Math.max(0, arcRojo - GAP_SEGMENTO)} ${CIRCUNFERENCIA}`}
+                    strokeDashoffset={-(arcVerde + arcAmarillo1 + GAP_SEGMENTO / 2)}
+                    className={`transition-all duration-300 ${
+                      estado.fase === 'rojo'
+                        ? 'opacity-100 filter drop-shadow-[0_0_10px_rgba(244,63,94,0.9)]'
+                        : 'opacity-25'
+                    }`}
+                  />
+
+                  {/* 4. Segmento AMARILLO 2 (pre-verde): [93s, 95s] */}
+                  <circle
+                    cx={SVG_CX}
+                    cy={SVG_CY}
+                    r={SVG_R}
+                    fill="none"
+                    stroke="#f59e0b"
+                    strokeWidth={esAmarilloPreVerde ? 14 : 11}
+                    strokeDasharray={`${Math.max(0, arcAmarillo2 - GAP_SEGMENTO)} ${CIRCUNFERENCIA}`}
+                    strokeDashoffset={-(arcVerde + arcAmarillo1 + arcRojo + GAP_SEGMENTO / 2)}
+                    className={`transition-all duration-300 ${
+                      esAmarilloPreVerde
+                        ? 'opacity-100 filter drop-shadow-[0_0_10px_rgba(245,158,11,0.9)]'
+                        : 'opacity-25'
+                    }`}
+                  />
+
+                  {/* Aguja / Marcador luminoso en la posición actual del ciclo */}
+                  <circle
+                    cx={cursorX}
+                    cy={cursorY}
+                    r="6.5"
+                    fill="#ffffff"
+                    stroke={
+                      estado.fase === 'verde'
+                        ? '#10b981'
                         : estado.fase === 'amarillo'
-                        ? 'text-amber-300'
-                        : 'text-rose-300'
+                        ? '#f59e0b'
+                        : '#f43f5e'
+                    }
+                    strokeWidth="3"
+                    className="filter drop-shadow-[0_0_8px_rgba(255,255,255,1)]"
+                  />
+                </svg>
+
+                {/* CONTENIDO INTERIOR DEL TACÓMETRO: NÚMERO TABULAR GIGANTE */}
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center px-4">
+                  {/* Fase activa en pill */}
+                  <div
+                    className={`text-[11px] font-black tracking-wider uppercase px-2.5 py-0.5 rounded-full border mb-1 flex items-center gap-1.5 ${
+                      estado.fase === 'verde'
+                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                        : estado.fase === 'amarillo'
+                        ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                        : 'bg-rose-500/20 text-rose-300 border-rose-500/40'
                     }`}
                   >
-                    {estado.fase}
+                    <span
+                      className={`w-2 h-2 rounded-full ${
+                        estado.fase === 'verde'
+                          ? 'bg-emerald-400 animate-ping'
+                          : estado.fase === 'amarillo'
+                          ? 'bg-amber-400 animate-ping'
+                          : 'bg-rose-400 animate-ping'
+                      }`}
+                    />
+                    <span>
+                      {estado.fase === 'verde'
+                        ? 'Fase Verde'
+                        : estado.fase === 'amarillo'
+                        ? (esAmarilloPreVerde ? 'Amarillo Final' : 'Amarillo')
+                        : 'Fase Roja'}
+                    </span>
+                  </div>
+
+                  {/* NÚMERO MONOESPACIADO TABULAR GIGANTE */}
+                  <div className="flex items-baseline justify-center">
+                    <span
+                      className={`font-mono font-tabular text-5xl sm:text-6xl font-black tracking-tight leading-none transition-colors ${
+                        estado.fase === 'verde'
+                          ? 'text-emerald-400 drop-shadow-[0_0_20px_rgba(16,185,129,0.7)]'
+                          : estado.fase === 'amarillo'
+                          ? 'text-amber-400 drop-shadow-[0_0_20px_rgba(245,158,11,0.7)]'
+                          : 'text-rose-400 drop-shadow-[0_0_20px_rgba(244,63,94,0.7)]'
+                      } ${esAlertaCambio ? 'animate-pulse scale-105' : ''}`}
+                    >
+                      {estado.segundosRestantesFase !== null
+                        ? String(estado.segundosRestantesFase).padStart(2, '0')
+                        : '--'}
+                    </span>
+                    <span className="text-xl font-bold font-mono text-slate-400 ml-1">s</span>
+                  </div>
+
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">
+                    Resta en fase
+                  </span>
+
+                  {/* Segundo en ciclo total */}
+                  <div className="mt-2 text-xs font-mono text-slate-300 font-bold bg-slate-950/70 px-3 py-1 rounded-xl border border-slate-800">
+                    <span className="text-slate-400">Seg: </span>
+                    <strong className="text-white font-tabular">{estado.segundoEnCiclo}</strong>
+                    <span className="text-slate-500"> / {DURACION_CICLO_SEG}s</span>
                   </div>
                 </div>
               </div>
 
-              {/* Cuenta regresiva de la fase */}
-              <div className="text-right font-mono">
-                <div className="text-[10px] text-slate-400">Resta</div>
-                <div
-                  className={`text-xl font-black ${
-                    estado.fase === 'verde'
-                      ? 'text-emerald-400'
-                      : estado.fase === 'amarillo'
-                      ? 'text-amber-400'
-                      : 'text-rose-400'
-                  }`}
-                >
-                  {estado.segundosRestantesFase}s
-                </div>
+              {/* Leyenda de fases alrededor del dial */}
+              <div className="flex items-center justify-center gap-3 text-[10px] font-mono text-slate-400 mt-1">
+                <span className="flex items-center gap-1 text-emerald-400">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400" /> Verde 18s
+                </span>
+                <span className="flex items-center gap-1 text-amber-400">
+                  <span className="w-2 h-2 rounded-full bg-amber-400" /> Am. 3s / 2s
+                </span>
+                <span className="flex items-center gap-1 text-rose-400">
+                  <span className="w-2 h-2 rounded-full bg-rose-400" /> Rojo 72s
+                </span>
               </div>
             </div>
 
-            {/* Panel de Progreso en Ciclo */}
-            <div className="p-3 rounded-2xl bg-slate-950/70 border border-slate-800 flex items-center justify-between">
-              <div>
-                <div className="text-[10px] uppercase font-bold tracking-wider text-slate-400">
-                  Segundo en Ciclo
+            {/* 3. PANELES DE TELEMETRÍA Y CALIBRACIÓN */}
+            <div className="md:col-span-3 space-y-2.5">
+              {/* Tarjeta Ciclo Actual */}
+              <div className="p-3 rounded-2xl bg-slate-950/70 border border-slate-800 flex items-center justify-between">
+                <div>
+                  <div className="text-[10px] uppercase font-bold tracking-wider text-slate-400">
+                    Ciclo N°
+                  </div>
+                  <div className="text-xl font-mono font-black text-blue-400 mt-0.5">
+                    #{estado.numeroCiclo}
+                  </div>
                 </div>
-                <div className="text-xl font-mono font-black text-white mt-0.5">
-                  {estado.segundoEnCiclo} <span className="text-xs text-slate-500">/ {DURACION_CICLO_SEG}s</span>
+                <div className="text-right">
+                  <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-500/30">
+                    Continuo
+                  </span>
                 </div>
               </div>
-              <div className="text-right">
-                <div className="text-[10px] text-slate-400 uppercase font-bold">Ciclo N°</div>
-                <div className="text-sm font-mono font-bold text-blue-400 mt-0.5">
-                  #{estado.numeroCiclo}
-                </div>
-              </div>
-            </div>
 
-            {/* Panel de Tiempos y Calibración */}
-            <div className="p-3 rounded-2xl bg-slate-950/70 border border-slate-800 flex items-center justify-between text-xs">
-              <div>
-                <div className="text-[10px] uppercase font-bold tracking-wider text-slate-400">
-                  Sincronización
+              {/* Tarjeta Sincronización y Tiempo */}
+              <div className="p-3 rounded-2xl bg-slate-950/70 border border-slate-800 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">
+                    Sincronización
+                  </span>
+                  {estado.requiereResincronizacion ? (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-bold">
+                      <AlertTriangle className="w-3 h-3" />
+                      <span>Calibrar</span>
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-semibold">
+                      <CheckCircle2 className="w-3 h-3" />
+                      <span>Óptimo</span>
+                    </span>
+                  )}
                 </div>
-                <div className="text-slate-300 font-semibold mt-0.5 flex items-center gap-1.5">
-                  <Clock className="w-3.5 h-3.5 text-blue-400" />
+
+                <div className="text-slate-300 font-semibold text-xs flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-blue-400 shrink-0" />
                   <span>Hace {estado.tiempoDesdeSincronizacionMin} min</span>
                 </div>
-                <div className="text-[10px] text-slate-500 truncate max-w-[130px]">
-                  Por: {sesion.sincronizadoPor || 'aforador'}
+
+                <div className="text-[10px] text-slate-500 truncate">
+                  Por: <strong className="text-slate-400">{sesion.sincronizadoPor || 'aforador'}</strong>
                 </div>
               </div>
 
-              {estado.requiereResincronizacion ? (
-                <div className="text-right">
-                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-bold">
-                    <AlertTriangle className="w-3 h-3" />
-                    <span>Verificar</span>
-                  </span>
-                </div>
-              ) : (
-                <div className="text-right">
-                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-semibold">
-                    <CheckCircle2 className="w-3 h-3" />
-                    <span>Óptimo</span>
-                  </span>
-                </div>
+              {/* Re-calibrar si pasaron > 30 minutos */}
+              {estado.requiereResincronizacion && (
+                <button
+                  type="button"
+                  onClick={() => setModalResincronizarAbierto(true)}
+                  className="touch-btn w-full p-2 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/40 text-amber-300 font-bold text-xs flex items-center justify-center gap-1.5 transition active:scale-95"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Re-sincronizar en campo</span>
+                </button>
               )}
             </div>
           </div>
 
-          {/* Barra visual de distribución del ciclo (18s Verde | 3s Amarillo | 72s Rojo | 2s Amarillo) */}
-          <div className="space-y-1">
-            <div className="w-full h-2.5 bg-slate-950 rounded-full overflow-hidden flex border border-slate-800 relative">
+          {/* BARRA VISUAL HORIZONTAL DE RESPALDO (TIMELINE DE DISTRIBUCIÓN) */}
+          <div className="space-y-1.5 pt-2">
+            <div className="w-full h-3 bg-slate-950 rounded-full overflow-hidden flex border border-slate-800 relative">
               {/* Franja Verde: 18/95 */}
               <div
                 style={{ width: `${(DURACION_VERDE_SEG / DURACION_CICLO_SEG) * 100}%` }}
@@ -305,7 +562,7 @@ export const SemaforoCronometro: React.FC<SemaforoCronometroProps> = ({
               <div
                 style={{ width: `${(DURACION_AMARILLO_SEG / DURACION_CICLO_SEG) * 100}%` }}
                 className={`h-full transition-opacity ${
-                  estado.fase === 'amarillo' && (estado.segundoEnCicloExacto ?? 0) < 21 ? 'bg-amber-400 shadow-sm shadow-amber-300' : 'bg-amber-950/80'
+                  esAmarilloPostVerde ? 'bg-amber-400 shadow-sm shadow-amber-300' : 'bg-amber-950/80'
                 }`}
                 title="Tramo Amarillo 1: 18 a 21s"
               />
@@ -321,7 +578,7 @@ export const SemaforoCronometro: React.FC<SemaforoCronometroProps> = ({
               <div
                 style={{ width: `${(DURACION_AMARILLO_FINAL_SEG / DURACION_CICLO_SEG) * 100}%` }}
                 className={`h-full transition-opacity ${
-                  estado.fase === 'amarillo' && (estado.segundoEnCicloExacto ?? 0) >= 93 ? 'bg-amber-400 shadow-sm shadow-amber-300' : 'bg-amber-950/80'
+                  esAmarilloPreVerde ? 'bg-amber-400 shadow-sm shadow-amber-300' : 'bg-amber-950/80'
                 }`}
                 title="Tramo Amarillo 2: 93 a 95s"
               />
@@ -329,7 +586,7 @@ export const SemaforoCronometro: React.FC<SemaforoCronometroProps> = ({
               {/* Indicador de posición actual (aguja en vivo) */}
               {estado.segundoEnCicloExacto !== null && (
                 <div
-                  className="absolute top-0 bottom-0 w-1 bg-white shadow-md z-10 transition-all duration-200"
+                  className="absolute top-0 bottom-0 w-1.5 bg-white shadow-[0_0_8px_rgba(255,255,255,1)] z-10 transition-all duration-200"
                   style={{
                     left: `${(estado.segundoEnCicloExacto / DURACION_CICLO_SEG) * 100}%`
                   }}
@@ -345,41 +602,26 @@ export const SemaforoCronometro: React.FC<SemaforoCronometroProps> = ({
               <span>{DURACION_CICLO_SEG}s</span>
             </div>
           </div>
-
-          {/* Recordatorio discreto si pasaron > 30 minutos sin re-verificar */}
-          {estado.requiereResincronizacion && (
-            <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 shrink-0 text-amber-400" />
-                <span>
-                  Han transcurrido <strong>{estado.tiempoDesdeSincronizacionMin} minutos</strong> desde la sincronización. Si notas desfase en campo con la luz real, puedes re-sincronizar.
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setModalResincronizarAbierto(true)}
-                className="touch-btn shrink-0 px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 font-bold text-[11px] border border-amber-500/40"
-              >
-                Re-sincronizar ahora
-              </button>
-            </div>
-          )}
         </div>
       ) : (
         /* PROMPT INICIAL CUANDO AÚN NO SE HA SINCRONIZADO */
-        <div className="mt-3.5 p-4 rounded-2xl bg-slate-950/70 border border-slate-800 text-center space-y-3">
-          <div className="flex items-center justify-center gap-2 text-amber-400 font-bold text-sm">
-            <Info className="w-4 h-4 shrink-0" />
-            <span>El ciclo de {DURACION_CICLO_SEG} segundos no ha sido iniciado para esta sesión</span>
+        <div className="mt-4 p-5 rounded-2xl bg-slate-950/70 border border-slate-800 text-center space-y-3">
+          <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 mx-auto">
+            <Zap className="w-6 h-6 animate-pulse" />
           </div>
-          <p className="text-xs text-slate-400 max-w-md mx-auto">
-            Observa el semáforo real de la intersección. En el momento exacto en que la luz cambie a <strong>VERDE</strong>, presiona el botón inferior para sincronizar a todo el equipo.
-          </p>
+          <div>
+            <h4 className="text-sm font-extrabold text-white">
+              El ciclo de {DURACION_CICLO_SEG} segundos no ha sido iniciado para esta sesión
+            </h4>
+            <p className="text-xs text-slate-400 max-w-md mx-auto mt-1">
+              Observa el semáforo real de la intersección. En el momento exacto en que la luz cambie a <strong>VERDE</strong>, presiona el botón inferior para sincronizar a todo el equipo simultáneamente.
+            </p>
+          </div>
           <button
             type="button"
             onClick={handleSincronizar}
             disabled={guardando}
-            className="touch-btn inline-flex items-center gap-2 px-6 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs sm:text-sm shadow-lg shadow-emerald-600/30 border border-emerald-400 transition active:scale-95 cursor-pointer"
+            className="touch-btn inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white font-extrabold text-xs sm:text-sm shadow-lg shadow-emerald-600/30 border border-emerald-400 transition active:scale-95 cursor-pointer"
           >
             <Play className="w-4 h-4 fill-current" />
             <span>{guardando ? 'Sincronizando...' : 'Sincronizar en inicio de VERDE'}</span>

@@ -50,6 +50,10 @@ export default function App() {
   const [todosLosEventos, setTodosLosEventos] = useState<EventoConteo[]>([]);
   const [vistaActiva, setVistaActiva] = useState<'conteo' | 'eventos' | 'historial' | 'papelera'>('conteo');
   const [modoVistaVehiculos, setModoVistaVehiculos] = useState<'mis_roles' | 'todos'>('mis_roles');
+  const [moduloSeleccionado, setModuloSeleccionado] = useState<'vial' | 'universitario' | null>(null);
+
+  const moduloActivo: 'vial' | 'universitario' =
+    moduloSeleccionado || (usuarioActual && esUsuarioAforoUniversitario(usuarioActual) ? 'universitario' : 'vial');
 
   // Colas FIFO en memoria para cada tipo de vehículo (compatibilidad)
   const [colasMemoria, setColasMemoria] = useState<Record<string, number[]>>({
@@ -491,12 +495,14 @@ export default function App() {
     );
   }
 
-  // Si el usuario autenticado es janiez@uniguajira.edu.co, renderizar su Dashboard de Aforo Universitario exclusivo
-  if (usuarioActual && esUsuarioAforoUniversitario(usuarioActual)) {
+  // Si el módulo activo es universitario, renderizar DashboardAforoUni
+  if (usuarioActual && moduloActivo === 'universitario') {
     return (
       <DashboardAforoUni
         usuarioActual={usuarioActual}
         onCerrarSesionAuth={handleCerrarSesionAuth}
+        moduloActivo={moduloActivo}
+        onCambiarModulo={setModuloSeleccionado}
       />
     );
   }
@@ -513,6 +519,8 @@ export default function App() {
         onCambiarVista={setVistaActiva}
         onAbrirAuth={() => setModalAuthAbierto(true)}
         onCerrarSesion={handleCerrarSesionAuth}
+        moduloActivo={moduloActivo}
+        onCambiarModulo={setModuloSeleccionado}
         onAbrirNuevaSesion={() => {
           if (!usuarioActual) {
             setModalAuthAbierto(true);

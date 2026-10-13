@@ -10,7 +10,8 @@ import {
   ListFilter,
   History,
   Trash2,
-  Users
+  Users,
+  Car
 } from 'lucide-react';
 import type { SesionConteo } from '../types/conteo';
 
@@ -28,6 +29,8 @@ interface NavbarProps {
   onExportarCSV?: () => void;
   sesionesActivasCount?: number;
   onAbrirUnirseOVerSesiones?: () => void;
+  moduloActivo?: 'vial' | 'universitario';
+  onCambiarModulo?: (modulo: 'vial' | 'universitario') => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -43,7 +46,9 @@ export const Navbar: React.FC<NavbarProps> = ({
   onExportarXLSX,
   onExportarCSV,
   sesionesActivasCount = 0,
-  onAbrirUnirseOVerSesiones
+  onAbrirUnirseOVerSesiones,
+  moduloActivo = 'vial',
+  onCambiarModulo
 }) => {
   const participantes = sesionActiva
     ? (sesionActiva.participantes && sesionActiva.participantes.length > 0
@@ -52,23 +57,59 @@ export const Navbar: React.FC<NavbarProps> = ({
     : [];
 
   return (
-    <header className="sticky top-0 z-30 bg-slate-900/95 backdrop-blur-md border-b border-slate-800 text-slate-100 pt-safe">
+    <header className="sticky top-0 z-30 bg-slate-950/85 backdrop-blur-xl border-b border-slate-800/80 text-slate-100 pt-safe shadow-lg shadow-black/20">
       <div className="max-w-7xl mx-auto px-3 sm:px-6 py-2.5 flex flex-col gap-2">
-        {/* Top bar: Brand + Session / Banner + User actions */}
+        {/* Top bar: Brand + Switcher de Módulo + Session info + User actions */}
         <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-600 via-sky-600 to-emerald-500 flex items-center justify-center font-black text-white text-xs shadow-sm shrink-0 border border-white/20">
-              AC
+          <div className="flex items-center gap-3 min-w-0">
+            {/* Logo AC Uniguajira */}
+            <div className="relative group shrink-0">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 via-sky-600 to-emerald-500 flex items-center justify-center font-black text-white text-xs shadow-md shadow-sky-950/50 border border-white/20">
+                AC
+              </div>
             </div>
+
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-extrabold tracking-tight text-sm sm:text-base text-white">
+                <span className="font-black tracking-tight text-sm sm:text-base text-white">
                   Aforo & Conteo
                 </span>
-                <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30 shrink-0">
-                  Módulo Vial
-                </span>
-                <span className="hidden xl:inline text-[10px] text-slate-400 bg-slate-950/80 border border-slate-800 px-2 py-0.5 rounded-full">
+
+                {/* Switcher de Módulos (Vial vs Universitario) */}
+                {onCambiarModulo ? (
+                  <div className="inline-flex items-center p-0.5 rounded-xl bg-slate-900 border border-slate-800 text-[11px] shadow-inner">
+                    <button
+                      type="button"
+                      onClick={() => onCambiarModulo('vial')}
+                      className={`touch-btn flex items-center gap-1 px-2 py-0.5 rounded-lg font-bold transition cursor-pointer ${
+                        moduloActivo === 'vial'
+                          ? 'bg-blue-600 text-white shadow-sm'
+                          : 'text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      <Car className="w-3 h-3" />
+                      <span>Vial</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onCambiarModulo('universitario')}
+                      className={`touch-btn flex items-center gap-1 px-2 py-0.5 rounded-lg font-bold transition cursor-pointer ${
+                        moduloActivo === 'universitario'
+                          ? 'bg-emerald-600 text-white shadow-sm'
+                          : 'text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      <Users className="w-3 h-3" />
+                      <span>Universitario</span>
+                    </button>
+                  </div>
+                ) : (
+                  <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30 shrink-0">
+                    Módulo Vial
+                  </span>
+                )}
+
+                <span className="hidden xl:inline text-[10px] text-slate-400 bg-slate-900/90 border border-slate-800 px-2.5 py-0.5 rounded-full">
                   Docente Aforo Vial: <strong className="text-blue-300">Marlyn Aaron</strong>
                 </span>
               </div>
@@ -99,7 +140,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                             className={`px-1.5 py-0.2 rounded text-[10px] font-semibold border ${
                               esYo
                                 ? 'bg-blue-500/20 text-blue-300 border-blue-500/30'
-                                : 'bg-slate-800 text-slate-300 border-slate-700'
+                                : 'bg-slate-800/80 text-slate-300 border-slate-700/80'
                             }`}
                           >
                             {p.split('@')[0]} {esYo && '(tú)'}
@@ -130,27 +171,25 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
           </div>
 
-          {/* User profile & session action */}
+          {/* Acciones de usuario y controles de cabecera */}
           <div className="flex items-center gap-2 shrink-0">
-            {/* Si no hay sesión activa pero hay sesiones del equipo, mostrar pill llamativo en sm+ */}
             {!sesionActiva && sesionesActivasCount > 0 && (
               <button
                 type="button"
                 onClick={onAbrirUnirseOVerSesiones}
-                className="touch-btn hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 shadow-sm transition cursor-pointer"
+                className="touch-btn hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 shadow-sm transition cursor-pointer"
               >
                 <Users className="w-3.5 h-3.5" />
                 <span>Unirse al equipo ({sesionesActivasCount})</span>
               </button>
             )}
 
-            {/* "Nueva Sesión" visible en sm+ */}
             <button
               onClick={onAbrirNuevaSesion}
-              className="touch-btn hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm transition cursor-pointer"
+              className="touch-btn hidden sm:flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-md shadow-emerald-950/40 transition cursor-pointer active:scale-95"
             >
               <PlusCircle className="w-3.5 h-3.5" />
-              Nueva Sesión
+              <span>Nueva Sesión</span>
             </button>
 
             {sesionActiva && (
@@ -159,7 +198,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <button
                     onClick={onExportarXLSX}
                     title="Exportar reporte XLSX"
-                    className="touch-btn p-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-slate-700 flex items-center gap-1 cursor-pointer"
+                    className="touch-btn p-1.5 rounded-xl text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-emerald-400 border border-slate-800 flex items-center gap-1 cursor-pointer transition"
                   >
                     <FileSpreadsheet className="w-3.5 h-3.5" />
                     <span>XLSX</span>
@@ -169,7 +208,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <button
                     onClick={onExportarCSV}
                     title="Exportar CSV crudo"
-                    className="touch-btn p-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-blue-400 border border-slate-700 flex items-center gap-1 cursor-pointer"
+                    className="touch-btn p-1.5 rounded-xl text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-blue-400 border border-slate-800 flex items-center gap-1 cursor-pointer transition"
                   >
                     <Download className="w-3.5 h-3.5" />
                     <span>CSV</span>
@@ -179,7 +218,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             )}
 
             {usuarioActual ? (
-              <div className="flex items-center gap-1.5 bg-slate-800/80 border border-slate-700 rounded-lg px-2 py-1">
+              <div className="flex items-center gap-1.5 bg-slate-900/90 border border-slate-800 rounded-xl px-2.5 py-1">
                 <User className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                 <span
                   className="hidden sm:inline text-xs text-slate-300 font-medium max-w-[110px] sm:max-w-[150px] truncate"
@@ -190,7 +229,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <button
                   onClick={onCerrarSesion}
                   title={`Cerrar sesión (${usuarioActual})`}
-                  className="touch-btn text-slate-400 hover:text-red-400 cursor-pointer"
+                  className="touch-btn text-slate-400 hover:text-red-400 cursor-pointer p-0.5 rounded transition"
                 >
                   <LogOut className="w-3.5 h-3.5" />
                 </button>
@@ -198,24 +237,24 @@ export const Navbar: React.FC<NavbarProps> = ({
             ) : (
               <button
                 onClick={onAbrirAuth}
-                className="touch-btn flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white shadow-sm cursor-pointer"
+                className="touch-btn flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white shadow-md shadow-blue-600/30 cursor-pointer transition"
               >
                 <LogIn className="w-3.5 h-3.5" />
-                Acceder
+                <span>Acceder</span>
               </button>
             )}
           </div>
         </div>
 
-        {/* Navigation Tabs — visibles en md+ (en móvil los maneja BottomNav) */}
+        {/* Pestañas de navegación en Desktop (md+) */}
         <div className="hidden md:flex items-center justify-between border-t border-slate-800/80 pt-1.5">
-          <nav className="flex items-center gap-1 sm:gap-2">
+          <nav className="flex items-center gap-1.5 sm:gap-2">
             <button
               onClick={() => onCambiarVista('conteo')}
-              className={`touch-btn flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs sm:text-sm font-semibold transition cursor-pointer ${
+              className={`touch-btn flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer ${
                 vistaActiva === 'conteo'
-                  ? 'bg-blue-600 text-white shadow'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                  ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
               }`}
             >
               <Activity className="w-4 h-4" />
@@ -224,31 +263,31 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             <button
               onClick={() => onCambiarVista('eventos')}
-              className={`touch-btn flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs sm:text-sm font-semibold transition cursor-pointer ${
+              className={`touch-btn flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer ${
                 vistaActiva === 'eventos'
-                  ? 'bg-blue-600 text-white shadow'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                  ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
               }`}
             >
               <ListFilter className="w-4 h-4" />
               <span>Eventos</span>
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-slate-700 text-slate-300">
+              <span className="font-tabular px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-slate-800 text-slate-300">
                 {totalEventos}
               </span>
             </button>
 
             <button
               onClick={() => onCambiarVista('historial')}
-              className={`touch-btn flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs sm:text-sm font-semibold transition cursor-pointer ${
+              className={`touch-btn flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer ${
                 vistaActiva === 'historial'
-                  ? 'bg-blue-600 text-white shadow'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                  ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
               }`}
             >
               <History className="w-4 h-4" />
               <span>Sesiones</span>
               {sesionesActivasCount > 0 && (
-                <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                <span className="font-tabular px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                   {sesionesActivasCount} activas
                 </span>
               )}
@@ -256,16 +295,16 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             <button
               onClick={() => onCambiarVista('papelera')}
-              className={`touch-btn flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs sm:text-sm font-semibold transition cursor-pointer ${
+              className={`touch-btn flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer ${
                 vistaActiva === 'papelera'
-                  ? 'bg-rose-600 text-white shadow'
-                  : 'text-slate-400 hover:text-rose-300 hover:bg-slate-800/60'
+                  ? 'bg-rose-600 text-white shadow-md shadow-rose-600/20'
+                  : 'text-slate-400 hover:text-rose-300 hover:bg-slate-900'
               }`}
             >
               <Trash2 className="w-4 h-4" />
               <span>Papelera</span>
               {typeof totalEnPapelera === 'number' && totalEnPapelera > 0 && (
-                <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-rose-500/30 text-rose-300 border border-rose-500/40">
+                <span className="font-tabular px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-rose-500/30 text-rose-300 border border-rose-500/40">
                   {totalEnPapelera}
                 </span>
               )}

@@ -13,7 +13,8 @@ import {
   Zap,
   CircleParking,
   Disc,
-  X
+  X,
+  ChevronRight
 } from 'lucide-react';
 import type { TipoVehiculo, EventoConteo, CategoriaSalidaVehiculo, MovimientoGiro, VehiculoEnServidor, FaseSemaforo } from '../types/conteo';
 import { TIPOS_VEHICULOS } from '../types/conteo';
@@ -71,6 +72,7 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
   const [ultimoCruceResultado, setUltimoCruceResultado] = useState<UltimoCruceResultado | null>(null);
   const [animandoEntrada, setAnimandoEntrada] = useState(false);
   const [animandoServidor, setAnimandoServidor] = useState(false);
+  const [animandoCruce, setAnimandoCruce] = useState(false);
   const [animandoUndo, setAnimandoUndo] = useState(false);
   const [deshaciendo, setDeshaciendo] = useState(false);
   const [mensajeToast, setMensajeToast] = useState<MensajeToast | null>(null);
@@ -158,12 +160,13 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
     };
   }, []);
 
-  const vibrar = (duracion = 40) => {
+  // Retroalimentación háptica precisa (25ms estándar para respuestas táctiles inmediatas)
+  const vibrar = (duracion = 25) => {
     if (typeof window !== 'undefined' && 'navigator' in window && navigator.vibrate) {
       try {
         navigator.vibrate(duracion);
       } catch {
-        // Ignorar
+        // Ignorar si el navegador restringe la vibración
       }
     }
   };
@@ -210,12 +213,12 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
 
   // 1. Entra a la cola (FIFO colaborativo)
   const handleEntraCola = async () => {
-    vibrar();
+    vibrar(25);
     const ahoraMs = Date.now();
     const ahoraIso = new Date(ahoraMs).toISOString();
 
     setAnimandoEntrada(true);
-    setTimeout(() => setAnimandoEntrada(false), 250);
+    setTimeout(() => setAnimandoEntrada(false), 200);
 
     const nuevoEvento: Omit<EventoConteo, 'id'> = {
       sesionId,
@@ -232,7 +235,7 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
   // Marcar vehículo como parqueado en carril
   const handleMarcarParqueado = async () => {
     if (enColaDisponibles <= 0) return;
-    vibrar(35);
+    vibrar(25);
     const ahoraMs = Date.now();
     const nuevoEvento: Omit<EventoConteo, 'id'> = {
       sesionId,
@@ -248,7 +251,7 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
   // Desmarcar vehículo parqueado
   const handleDesmarcarParqueado = async () => {
     if (parqueadosEnCola <= 0) return;
-    vibrar(35);
+    vibrar(25);
     const ahoraMs = Date.now();
     const nuevoEvento: Omit<EventoConteo, 'id'> = {
       sesionId,
@@ -265,7 +268,7 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
   const handleLlegaServidor = async () => {
     if (enColaDisponibles <= 0) return;
 
-    vibrar(35);
+    vibrar(25);
     const ahoraMs = Date.now();
     const ahoraIso = new Date(ahoraMs).toISOString();
 
@@ -283,7 +286,7 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
     const tiempoEnColaSeg = Math.max(0, Math.round((ahoraMs - horaEntradaColaMs) / 1000));
 
     setAnimandoServidor(true);
-    setTimeout(() => setAnimandoServidor(false), 250);
+    setTimeout(() => setAnimandoServidor(false), 200);
 
     const nuevoEvento: Omit<EventoConteo, 'id'> = {
       sesionId,
@@ -303,7 +306,7 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
   const handleSalidaCola = async () => {
     if (enServidor <= 0) return;
 
-    vibrar(45);
+    vibrar(35);
     const ahoraMs = Date.now();
     const ahoraIso = new Date(ahoraMs).toISOString();
 
@@ -324,6 +327,9 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
 
     const estadoSemaforo = calcularEstadoSemaforo(ahoraMs, inicioCicloSemaforo);
     const categoria = mapearFaseACategoria(estadoSemaforo.fase);
+
+    setAnimandoCruce(true);
+    setTimeout(() => setAnimandoCruce(false), 200);
 
     setUltimaEspera({
       cola: tiempoEnColaSeg,
@@ -364,7 +370,7 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
   const handleMovimiento = async (giro: MovimientoGiro) => {
     if (!movimientosHabilitados) return;
 
-    vibrar();
+    vibrar(25);
     const ahoraMs = Date.now();
     const nuevoEvento: Omit<EventoConteo, 'id'> = {
       sesionId,
@@ -378,13 +384,13 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
     await onRegistrarEvento(nuevoEvento);
   };
 
-  // Deshacer (Undo) funcional y multi-nivel
+  // Deshacer (Undo) funcional y multi-nivel con feedback visual
   const handleDeshacer = async (e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     if (!ultimoEvento || !ultimoEvento.id || deshaciendo) return;
 
     const idParaDeshacer = ultimoEvento.id;
-    vibrar(50);
+    vibrar(40);
     setAnimandoUndo(true);
     setTimeout(() => setAnimandoUndo(false), 350);
 
@@ -395,7 +401,7 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
     }
     toastTimeoutRef.current = setTimeout(() => {
       setMensajeToast(null);
-    }, 2800);
+    }, 3200);
 
     // Revertir estados visuales locales si se deshizo una salida
     if (ultimoEvento.tipoRegistro === 'salida_cola') {
@@ -418,16 +424,16 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
   };
 
   return (
-    <div className="relative bg-slate-900 border border-slate-800 rounded-3xl p-4 sm:p-5 shadow-lg flex flex-col justify-between transition hover:border-slate-700/80">
-      {/* Toast Flotante Temporal de Deshacer */}
+    <div className="relative bg-gradient-to-b from-slate-900/95 via-slate-900/90 to-slate-950/95 border border-slate-700/70 rounded-3xl p-4 sm:p-5 shadow-2xl backdrop-blur-xl flex flex-col justify-between transition-all hover:border-slate-600/90">
+      {/* Toast Flotante Destacado para Deshacer Inmediato */}
       {mensajeToast && (
-        <div className="absolute top-3 left-3 right-3 z-30 bg-slate-950/95 border border-amber-500/60 text-amber-200 px-3.5 py-2.5 rounded-2xl text-xs font-semibold shadow-2xl flex items-center justify-between gap-2.5 animate-in fade-in slide-in-from-top-2 duration-200 backdrop-blur-md">
-          <div className="flex items-center gap-2 min-w-0">
-            <div className="p-1.5 rounded-xl bg-amber-500/20 text-amber-400 shrink-0">
+        <div className="absolute top-3 left-3 right-3 z-30 bg-slate-950/95 border border-amber-400/80 text-amber-200 px-3.5 py-2.5 rounded-2xl text-xs font-semibold shadow-2xl flex items-center justify-between gap-2.5 animate-in fade-in slide-in-from-top-2 duration-200 backdrop-blur-md">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="p-1.5 rounded-xl bg-amber-500/25 text-amber-300 shrink-0">
               <Undo2 className="w-4 h-4" />
             </div>
             <div className="truncate">
-              <p className="font-bold text-amber-300 text-xs truncate">{mensajeToast.accion}</p>
+              <p className="font-extrabold text-amber-300 text-xs truncate">{mensajeToast.accion}</p>
               <p className="text-[10px] text-slate-400 truncate">{mensajeToast.detalle}</p>
             </div>
           </div>
@@ -443,103 +449,111 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
       )}
 
       <div>
-        {/* Encabezado del Bloque y Contadores en Paralelo */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-800 gap-2.5">
+        {/* ENCABEZADO: TIPO DE VEHÍCULO + PIPELINE EN PARALELO + BOTÓN DESHACER DESTACADO */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3.5 border-b border-slate-800/90 gap-3">
           <div className="flex items-center gap-3">
-            <div className={`p-2 rounded-xl ${info.badgeBg} ${info.color} flex items-center justify-center shrink-0`}>
+            <div className={`p-2.5 rounded-2xl ${info.badgeBg} ${info.color} flex items-center justify-center shrink-0 border ${info.badgeBorder} shadow-inner`}>
               <VehiculoIcono tipo={tipo} className="w-6 h-6" />
             </div>
             <div>
-              <h3 className={`text-base font-extrabold tracking-tight ${info.color}`}>
-                {info.nombre}
-              </h3>
-              <p className="text-[11px] text-slate-400 leading-none mt-0.5">
+              <div className="flex items-center gap-2">
+                <h3 className={`text-base font-black tracking-tight ${info.color}`}>
+                  {info.nombre}
+                </h3>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-slate-300 font-bold">
+                  {totalSalidas} cruces
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400 leading-none mt-1">
                 {info.subtitulo}
               </p>
             </div>
           </div>
 
-          {/* CONTADORES DOBLES EN PARALELO: EN COLA (N) Y EN SERVIDOR (M) + BOTÓN DESHACER */}
+          {/* INDICADORES DE COLA (N) Y SERVIDOR (M) + BOTÓN DESHACER PROMINENTE */}
           <div className="flex items-center gap-2 self-end sm:self-center">
-            {/* Contador 1: En cola (N) */}
+            {/* Pipeline Visual: Cola (N) */}
             <div
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border font-mono transition-all ${
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-2xl border font-mono transition-all ${
                 enCola > 0
-                  ? 'bg-amber-500/20 border-amber-500/50 text-amber-300 shadow-sm shadow-amber-500/10'
-                  : 'bg-slate-800/80 border-slate-700 text-slate-400'
+                  ? 'bg-amber-500/20 border-amber-500/60 text-amber-300 shadow-sm shadow-amber-500/10'
+                  : 'bg-slate-950/80 border-slate-800 text-slate-400'
               }`}
             >
               <Users className="w-3.5 h-3.5 text-amber-400 shrink-0" />
               <div className="flex flex-col text-left leading-none">
                 <div className="flex items-center gap-1">
-                  <span className="text-[9px] uppercase font-bold text-slate-400">En cola</span>
+                  <span className="text-[9px] uppercase font-bold text-slate-400">En Cola</span>
                   {parqueadosEnCola > 0 && (
                     <span
-                      className="text-[9px] font-black px-1.5 py-0.5 rounded bg-amber-500/30 text-amber-200 border border-amber-500/40 inline-flex items-center gap-1"
+                      className="text-[9px] font-black px-1 py-0.2 rounded bg-amber-500/30 text-amber-200 border border-amber-500/40 inline-flex items-center gap-0.5"
                       title={`${parqueadosEnCola} vehículo(s) parqueado(s) en carril`}
                     >
-                      <CircleParking className="w-3 h-3 text-amber-300 shrink-0" />
+                      <CircleParking className="w-2.5 h-2.5 text-amber-300 shrink-0" />
                       <span>{parqueadosEnCola}</span>
                     </span>
                   )}
                 </div>
-                <span className="text-base font-black text-white mt-0.5">{enCola}</span>
+                <span className="text-base font-black text-white mt-0.5 font-tabular">{enCola}</span>
               </div>
             </div>
 
-            {/* Contador 2: En servidor (M) */}
+            <ChevronRight className="w-3.5 h-3.5 text-slate-600 shrink-0 hidden sm:block" />
+
+            {/* Pipeline Visual: Servidor (M) */}
             <div
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border font-mono transition-all ${
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-2xl border font-mono transition-all ${
                 enServidor > 0
-                  ? 'bg-cyan-500/20 border-cyan-500/50 text-cyan-300 shadow-sm shadow-cyan-500/10'
-                  : 'bg-slate-800/80 border-slate-700 text-slate-400'
+                  ? 'bg-cyan-500/20 border-cyan-500/60 text-cyan-300 shadow-sm shadow-cyan-500/10'
+                  : 'bg-slate-950/80 border-slate-800 text-slate-400'
               }`}
             >
               <Timer className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
               <div className="flex flex-col text-left leading-none">
-                <span className="text-[9px] uppercase font-bold text-slate-400">En semáforo</span>
-                <span className="text-base font-black text-white mt-0.5">{enServidor}</span>
+                <span className="text-[9px] uppercase font-bold text-slate-400">En Semáforo</span>
+                <span className="text-base font-black text-white mt-0.5 font-tabular">{enServidor}</span>
               </div>
             </div>
 
-            {/* BOTÓN DESHACER (UNDO) SOLO ICONO CON COLOR VIVO */}
+            {/* BOTÓN DESHACER (UNDO) DESTACADO Y ERGONÓMICO */}
             <button
               type="button"
               disabled={!ultimoEvento || deshaciendo}
               onClick={handleDeshacer}
               title={ultimoEvento ? `Deshacer: ${getDescripcionAccion(ultimoEvento).accion}` : 'Sin acciones para deshacer'}
               aria-label="Deshacer última acción"
-              className={`touch-btn group w-9 h-9 rounded-xl border flex items-center justify-center transition-all cursor-pointer active:scale-90 shrink-0 ${
+              className={`touch-btn group h-10 px-3 rounded-2xl border flex items-center gap-1.5 transition-all cursor-pointer active:scale-90 shrink-0 ${
                 ultimoEvento
-                  ? 'bg-amber-500/20 text-amber-300 hover:bg-amber-500 hover:text-slate-950 border-amber-500/40 shadow-sm shadow-amber-500/20'
-                  : 'bg-slate-800/30 border-slate-800/60 text-slate-600 cursor-not-allowed opacity-30'
+                  ? 'bg-amber-500/25 text-amber-200 hover:bg-amber-500 hover:text-slate-950 border-amber-400/60 shadow-md shadow-amber-500/20 font-bold text-xs'
+                  : 'bg-slate-800/20 border-slate-800/50 text-slate-600 cursor-not-allowed opacity-30 text-xs'
               }`}
             >
               <Undo2 className={`w-4 h-4 transition-transform duration-300 shrink-0 ${animandoUndo ? '-rotate-90 text-amber-300 scale-125' : ''}`} />
+              <span className="hidden sm:inline">Deshacer</span>
             </button>
           </div>
         </div>
 
-        {/* SECUENCIA DE ACCIÓN: 1. ENTRA A COLA → 2. LLEGA AL SERVIDOR → 3. CRUZA */}
-        <div className="mt-3.5 space-y-2.5">
-          {/* Fila de Paso 1 y Paso 2 */}
-          <div className="grid grid-cols-2 gap-2">
+        {/* TECLADO DE CONTEO ERGONÓMICO DE ZONA DE PULGAR */}
+        <div className="mt-4 space-y-3">
+          {/* Fila de Paso 1 y Paso 2 (Botones táctiles grandes para los dos pulgares) */}
+          <div className="grid grid-cols-2 gap-2.5">
             {/* BOTÓN 1: Entra a la cola */}
             <button
               type="button"
               onClick={handleEntraCola}
-              className={`touch-btn py-3 px-2.5 rounded-2xl font-black text-xs sm:text-sm tracking-wide uppercase transition-all flex flex-col items-center justify-center gap-1 shadow-md cursor-pointer active:scale-95 transition-transform ${
+              className={`touch-btn min-h-[58px] py-3.5 px-3 rounded-2xl font-black text-xs sm:text-sm tracking-wide uppercase transition-all flex flex-col items-center justify-center gap-1 shadow-lg cursor-pointer border border-amber-500/50 active:scale-95 ${
                 animandoEntrada
-                  ? 'bg-amber-400 text-slate-950 scale-95'
-                  : 'bg-gradient-to-br from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-slate-950 shadow-amber-600/20'
+                  ? 'bg-amber-400 text-slate-950 scale-95 shadow-amber-400/40'
+                  : 'bg-gradient-to-br from-amber-500 via-amber-600 to-amber-700 hover:from-amber-400 hover:to-amber-600 text-slate-950 shadow-amber-600/25'
               }`}
             >
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-2">
                 <Clock className="w-4 h-4 shrink-0 fill-slate-950/20" />
                 <span>1. Entra cola</span>
               </div>
-              <span className="text-[10px] font-mono font-bold bg-slate-950/20 px-2 py-0.5 rounded-md">
-                +1 fila
+              <span className="text-[10px] font-mono font-black bg-slate-950/20 px-2 py-0.5 rounded-lg">
+                +1 en fila
               </span>
             </button>
 
@@ -548,19 +562,19 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
               type="button"
               disabled={enColaDisponibles === 0}
               onClick={handleLlegaServidor}
-              className={`touch-btn py-3 px-2.5 rounded-2xl border font-bold text-xs sm:text-sm tracking-wide uppercase transition-all flex flex-col items-center justify-center gap-1 shadow-md active:scale-95 transition-transform ${
+              className={`touch-btn min-h-[58px] py-3.5 px-3 rounded-2xl border font-black text-xs sm:text-sm tracking-wide uppercase transition-all flex flex-col items-center justify-center gap-1 shadow-lg active:scale-95 ${
                 enColaDisponibles > 0
                   ? animandoServidor
-                    ? 'bg-cyan-400 text-slate-950 scale-95 border-cyan-400'
-                    : 'bg-gradient-to-br from-cyan-600 to-cyan-700 hover:from-cyan-500 hover:to-cyan-600 text-white shadow-cyan-600/20 border-cyan-500/40 cursor-pointer'
-                  : 'bg-slate-800/40 border-slate-800 text-slate-500 cursor-not-allowed opacity-40'
+                    ? 'bg-cyan-400 text-slate-950 scale-95 border-cyan-300 shadow-cyan-400/40'
+                    : 'bg-gradient-to-br from-cyan-600 via-cyan-700 to-cyan-800 hover:from-cyan-500 hover:to-cyan-700 text-white shadow-cyan-600/25 border-cyan-400/50 cursor-pointer'
+                  : 'bg-slate-950/40 border-slate-800/80 text-slate-500 cursor-not-allowed opacity-40'
               }`}
             >
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-2">
                 <LogIn className="w-4 h-4 shrink-0" />
                 <span>2. Al semáforo</span>
               </div>
-              <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-md inline-flex items-center justify-center gap-1 ${
+              <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-lg inline-flex items-center justify-center gap-1 ${
                 enColaDisponibles > 0 ? 'bg-black/20 text-cyan-200' : 'text-slate-600'
               }`}>
                 {enCola > 0 && enColaDisponibles === 0 ? (
@@ -575,7 +589,7 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
             </button>
           </div>
 
-          {/* CONTROL Y ESTADO DE VEHÍCULO PARQUEADO EN CARRIL */}
+          {/* CONTROL DE VEHÍCULO PARQUEADO EN CARRIL */}
           {parqueadosEnCola > 0 ? (
             <div className="p-2.5 rounded-2xl bg-amber-500/15 border border-amber-500/40 text-amber-200 text-xs flex items-center justify-between gap-2 shadow-sm animate-in fade-in">
               <div className="flex items-center gap-2 min-w-0">
@@ -587,7 +601,7 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
                     {parqueadosEnCola} {parqueadosEnCola === 1 ? 'parqueado en carril' : 'parqueados en carril'}
                   </span>
                   <p className="text-[10px] text-amber-400/80 truncate">
-                    Permanece en cola · Bloqueado para semáforo
+                    Permanece en cola · No avanza al semáforo
                   </p>
                 </div>
               </div>
@@ -597,7 +611,7 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
                     type="button"
                     onClick={handleMarcarParqueado}
                     title="Marcar otro vehículo parqueado en carril"
-                    className="touch-btn text-[10px] font-bold px-2 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/40 cursor-pointer active:scale-95 transition-transform"
+                    className="touch-btn text-[10px] font-bold px-2.5 py-1.5 rounded-lg bg-amber-500/25 hover:bg-amber-500/35 text-amber-200 border border-amber-500/50 cursor-pointer active:scale-95"
                   >
                     +1
                   </button>
@@ -606,7 +620,7 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
                   type="button"
                   onClick={handleDesmarcarParqueado}
                   title="Reanuda la marcha del vehículo y se habilita para avanzar al semáforo"
-                  className="touch-btn text-[11px] font-black px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-sm transition active:scale-95 transition-transform cursor-pointer"
+                  className="touch-btn text-[11px] font-black px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-md transition active:scale-95 cursor-pointer"
                 >
                   Desmarcar
                 </button>
@@ -617,7 +631,7 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
               <button
                 type="button"
                 onClick={handleMarcarParqueado}
-                className="touch-btn w-full py-1.5 px-3 rounded-xl border border-slate-800 hover:border-amber-500/40 bg-slate-950/60 hover:bg-amber-500/10 text-slate-400 hover:text-amber-300 text-[11px] font-semibold flex items-center justify-center gap-1.5 transition active:scale-95 transition-transform cursor-pointer"
+                className="touch-btn w-full py-1.5 px-3 rounded-xl border border-slate-800 hover:border-amber-500/40 bg-slate-950/60 hover:bg-amber-500/10 text-slate-400 hover:text-amber-300 text-[11px] font-semibold flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer"
                 title="Marcar que un vehículo que entró a la cola se estacionó/parqueó en el carril"
               >
                 <CircleParking className="w-3.5 h-3.5 text-amber-400 shrink-0" />
@@ -626,23 +640,25 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
             )
           )}
 
-          {/* BOTÓN 3: "3. CRUZA VEHÍCULO" — DESHABILITADO SI M = 0 */}
+          {/* BOTÓN 3: "3. CRUZA VEHÍCULO" — HERO TÁCTIL PRINCIPAL */}
           <div className="space-y-2">
             <button
               type="button"
               disabled={enServidor === 0}
               onClick={handleSalidaCola}
-              className={`touch-btn w-full py-3.5 px-4 rounded-2xl border flex items-center justify-center gap-2.5 transition-all shadow-md active:scale-95 transition-transform ${
+              className={`touch-btn w-full min-h-[54px] py-3.5 px-4 rounded-2xl border flex items-center justify-center gap-2.5 transition-all shadow-xl active:scale-95 ${
                 enServidor > 0
-                  ? 'bg-gradient-to-r from-emerald-600 via-teal-600 to-blue-600 hover:from-emerald-500 hover:to-blue-500 text-white shadow-emerald-700/25 border-emerald-400/40 cursor-pointer font-black text-sm'
-                  : 'bg-slate-800/40 border-slate-800 text-slate-500 cursor-not-allowed opacity-40 font-bold text-sm'
+                  ? animandoCruce
+                    ? 'bg-emerald-400 text-slate-950 scale-95 border-emerald-300 shadow-emerald-400/40 font-black text-sm'
+                    : 'bg-gradient-to-r from-emerald-600 via-teal-600 to-blue-600 hover:from-emerald-500 hover:to-blue-500 text-white shadow-emerald-600/30 border-emerald-400/50 cursor-pointer font-black text-sm'
+                  : 'bg-slate-950/40 border-slate-800/80 text-slate-500 cursor-not-allowed opacity-40 font-bold text-sm'
               }`}
             >
               <CircleCheck className={`w-5 h-5 shrink-0 ${enServidor > 0 ? 'text-white' : 'text-slate-600'}`} />
               <span className="tracking-wide uppercase">3. Cruza vehículo</span>
             </button>
 
-            {/* FEEDBACK VISUAL BREVE TRAS EL CRUCE */}
+            {/* FEEDBACK VISUAL INMEDIATO TRAS EL CRUCE */}
             {ultimoCruceResultado && (
               <div className={`p-2 rounded-xl border text-xs flex items-center justify-between transition-all animate-in fade-in ${
                 ultimoCruceResultado.fase === 'verde'
@@ -670,45 +686,45 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
                   </span>
                 </div>
                 {ultimoCruceResultado.segundoEnCiclo !== null && (
-                  <span className="font-mono text-[11px] text-slate-300">
+                  <span className="font-mono text-[11px] text-slate-300 font-tabular">
                     Seg {ultimoCruceResultado.segundoEnCiclo}s (Ciclo #{ultimoCruceResultado.numeroCiclo})
                   </span>
                 )}
               </div>
             )}
 
-            {/* BOTÓN INDEPENDIENTE: REGISTRAR CRUCE DIRECTO (SIN COLA) */}
+            {/* BOTÓN SECUNDARIO: REGISTRAR CRUCE DIRECTO EN FLUJO LIBRE */}
             <button
               type="button"
               onClick={() => setModalCruceDirectoAbierto(true)}
-              className="touch-btn w-full py-2 px-3 rounded-xl border border-amber-500/40 hover:border-amber-400 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 font-bold text-xs flex items-center justify-center gap-2 transition cursor-pointer shadow-sm active:scale-95 transition-transform"
+              className="touch-btn w-full py-2.5 px-3 rounded-xl border border-amber-500/40 hover:border-amber-400 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 font-bold text-xs flex items-center justify-center gap-2 transition cursor-pointer shadow-sm active:scale-95"
               title="Registrar cruce de vehículo en flujo libre sin detenerse en cola ni en semáforo"
             >
               <Zap className="w-3.5 h-3.5 text-amber-400 fill-amber-400 shrink-0" />
               <span>Registrar cruce directo (flujo libre)</span>
             </button>
 
-            {/* Aviso dinámico sobre el estado actual del semáforo/servidor */}
+            {/* Micro-aviso de estado sobre el flujo */}
             <div className="text-[11px] text-center font-medium pt-0.5">
               {enServidor > 0 ? (
                 <span className="text-cyan-400 font-semibold">
-                  Hay {enServidor} vehículo(s) en semáforo (Paso 3 habilitado).
+                  Hay {enServidor} vehículo(s) en semáforo. Pulsa &quot;3. Cruza vehículo&quot;.
                 </span>
               ) : enCola > 0 ? (
                 enColaDisponibles === 0 ? (
                   <span className="text-amber-400 flex items-center justify-center gap-1 font-semibold">
                     <AlertCircle className="w-3.5 h-3.5 inline shrink-0" />
-                    <span>Vehículo(s) en cola parqueado(s). Desmarca para habilitar el paso a semáforo.</span>
+                    <span>Vehículo(s) en cola parqueado(s). Desmarca para avanzar.</span>
                   </span>
                 ) : (
                   <span className="text-amber-400 flex items-center justify-center gap-1">
                     <AlertCircle className="w-3.5 h-3.5 inline shrink-0" />
-                    <span>Hay {enColaDisponibles} disponible(s) en cola. Pásalos a &quot;2. Al semáforo&quot; para habilitar el cruce.</span>
+                    <span>{enColaDisponibles} en cola. Pásalo a &quot;2. Al semáforo&quot; para habilitar el cruce.</span>
                   </span>
                 )
               ) : (
                 <span className="text-slate-500">
-                  Semáforo vacío (M = 0). Para flujo libre sin detención, usa &quot;Cruce directo&quot;.
+                  Semáforo vacío. Si cruza sin detenerse, usa &quot;Cruce directo&quot;.
                 </span>
               )}
             </div>
@@ -716,27 +732,27 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
         </div>
 
         {/* MÉTRICAS DE SALIDA DESGLOSADAS POR FASE AUTOMÁTICA */}
-        <div className="mt-3 grid grid-cols-4 gap-1.5 bg-slate-950/60 p-2 rounded-2xl border border-slate-800/80 text-center font-mono">
+        <div className="mt-3.5 grid grid-cols-4 gap-1.5 bg-slate-950/70 p-2.5 rounded-2xl border border-slate-800/80 text-center font-mono">
           <div>
             <div className="text-[9px] text-slate-400 font-sans uppercase font-bold">Total</div>
-            <div className="text-base font-extrabold text-white mt-0.5">{totalSalidas}</div>
+            <div className="text-base font-extrabold text-white mt-0.5 font-tabular">{totalSalidas}</div>
           </div>
           <div>
             <div className="text-[9px] text-emerald-400 font-sans uppercase font-bold">Verde</div>
-            <div className="text-base font-extrabold text-emerald-400 mt-0.5">{countVerde}</div>
+            <div className="text-base font-extrabold text-emerald-400 mt-0.5 font-tabular">{countVerde}</div>
           </div>
           <div>
             <div className="text-[9px] text-amber-400 font-sans uppercase font-bold">Amarillo</div>
-            <div className="text-base font-extrabold text-amber-400 mt-0.5">{countAmarillo}</div>
+            <div className="text-base font-extrabold text-amber-400 mt-0.5 font-tabular">{countAmarillo}</div>
           </div>
           <div>
             <div className="text-[9px] text-rose-400 font-sans uppercase font-bold">Rojo</div>
-            <div className="text-base font-extrabold text-rose-400 mt-0.5">{countRojo}</div>
+            <div className="text-base font-extrabold text-rose-400 mt-0.5 font-tabular">{countRojo}</div>
           </div>
         </div>
 
-        {/* TIEMPOS DE SERVICIO Y ESPERA (DESGLOSE TEORÍA DE COLAS) */}
-        <div className="mt-2.5 bg-slate-800/40 p-2.5 rounded-2xl border border-slate-800 text-xs text-slate-300 space-y-1.5">
+        {/* TIEMPOS DE ESPERA Y SERVICIO (DESGLOSE TEORÍA DE COLAS) */}
+        <div className="mt-2.5 bg-slate-950/50 p-2.5 rounded-2xl border border-slate-800/80 text-xs text-slate-300 space-y-1.5">
           <div className="flex items-center justify-between text-[11px]">
             <div className="flex items-center gap-1 text-slate-400">
               <Timer className="w-3.5 h-3.5 text-blue-400 shrink-0" />
@@ -744,65 +760,65 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
             </div>
             <div className="flex items-center gap-2 font-mono text-[11px]">
               <span title="Tiempo en cola">
-                Cola: <strong className="text-amber-300">{promedioCola}s</strong>
+                Cola: <strong className="text-amber-300 font-tabular">{promedioCola}s</strong>
               </span>
               <span>•</span>
               <span title="Tiempo en semáforo/servidor">
-                Semáf: <strong className="text-cyan-300">{promedioServidor}s</strong>
+                Semáf: <strong className="text-cyan-300 font-tabular">{promedioServidor}s</strong>
               </span>
               <span>•</span>
               <span title="Tiempo total">
-                Total: <strong className="text-white">{promedioTotal}s</strong>
+                Total: <strong className="text-white font-tabular">{promedioTotal}s</strong>
               </span>
             </div>
           </div>
 
           {ultimaEspera && (
-            <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1 border-t border-slate-700/60 font-mono">
-              <span className="text-slate-400 font-sans">Último vehículo:</span>
+            <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1 border-t border-slate-800 font-mono">
+              <span className="text-slate-400 font-sans">Último cruce:</span>
               <div className="flex items-center gap-2">
-                <span>Cola: <strong className="text-amber-400">{ultimaEspera.cola}s</strong></span>
-                <span>Semáf: <strong className="text-cyan-400">{ultimaEspera.servidor}s</strong></span>
-                <span>Total: <strong className="text-white">{ultimaEspera.total}s</strong></span>
+                <span>Cola: <strong className="text-amber-400 font-tabular">{ultimaEspera.cola}s</strong></span>
+                <span>Semáf: <strong className="text-cyan-400 font-tabular">{ultimaEspera.servidor}s</strong></span>
+                <span>Total: <strong className="text-white font-tabular">{ultimaEspera.total}s</strong></span>
               </div>
             </div>
           )}
         </div>
       </div>
 
-      {/* BLOQUE DE MOVIMIENTOS / GIROS INDEPENDIENTES */}
-      <div className="mt-3.5 pt-3 border-t border-slate-800/80">
-        <div className="flex items-center justify-between mb-2">
+      {/* BLOQUE DE MOVIMIENTOS / GIROS CON ICONOGRAFÍA CLARA Y BADGES PENDIENTES */}
+      <div className="mt-4 pt-3.5 border-t border-slate-800/80">
+        <div className="flex items-center justify-between mb-2.5">
           <span className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
             <span>Giros / Maniobras</span>
             {girosPendientes > 0 && (
-              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono bg-amber-500/20 text-amber-300 border border-amber-500/30">
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/25 text-amber-300 border border-amber-500/40 animate-pulse">
                 {girosPendientes} pendiente{girosPendientes > 1 ? 's' : ''}
               </span>
             )}
           </span>
-          <span className="text-[11px] font-mono text-slate-400">
+          <span className="text-[11px] font-mono text-slate-400 font-tabular">
             {totalGiros} / {totalSalidas} registrados
           </span>
         </div>
 
-        <div className="grid grid-cols-3 gap-1.5">
+        <div className="grid grid-cols-3 gap-2">
           {/* Giro Izquierda */}
           <button
             type="button"
             disabled={!movimientosHabilitados}
             onClick={() => handleMovimiento('izquierda')}
-            className={`touch-btn py-2.5 px-2 rounded-xl border flex flex-col items-center justify-center gap-1 transition ${
+            className={`touch-btn min-h-[46px] py-2.5 px-2 rounded-xl border flex flex-col items-center justify-center gap-1 transition ${
               movimientosHabilitados
-                ? 'bg-slate-800 hover:bg-slate-700 border-slate-700 hover:border-blue-500/50 text-slate-200 cursor-pointer shadow-sm active:scale-95 transition-transform'
-                : 'bg-slate-800/30 border-slate-800/60 text-slate-600 cursor-not-allowed opacity-50'
+                ? 'bg-slate-800/90 hover:bg-slate-700/90 border-slate-700 hover:border-blue-500/50 text-slate-200 cursor-pointer shadow-sm active:scale-95'
+                : 'bg-slate-950/40 border-slate-800/60 text-slate-600 cursor-not-allowed opacity-40'
             }`}
           >
-            <div className="flex items-center gap-1 font-bold text-xs">
+            <div className="flex items-center gap-1.5 font-bold text-xs">
               <ArrowLeft className="w-4 h-4 text-blue-400 shrink-0" />
               <span>Izq</span>
             </div>
-            <span className="text-[10px] font-mono text-slate-400">{countIzquierda}</span>
+            <span className="text-[10px] font-mono text-slate-400 font-tabular">{countIzquierda}</span>
           </button>
 
           {/* Movimiento Recto */}
@@ -810,17 +826,17 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
             type="button"
             disabled={!movimientosHabilitados}
             onClick={() => handleMovimiento('recto')}
-            className={`touch-btn py-2.5 px-2 rounded-xl border flex flex-col items-center justify-center gap-1 transition ${
+            className={`touch-btn min-h-[46px] py-2.5 px-2 rounded-xl border flex flex-col items-center justify-center gap-1 transition ${
               movimientosHabilitados
-                ? 'bg-slate-800 hover:bg-slate-700 border-slate-700 hover:border-blue-500/50 text-slate-200 cursor-pointer shadow-sm active:scale-95 transition-transform'
-                : 'bg-slate-800/30 border-slate-800/60 text-slate-600 cursor-not-allowed opacity-50'
+                ? 'bg-slate-800/90 hover:bg-slate-700/90 border-slate-700 hover:border-blue-500/50 text-slate-200 cursor-pointer shadow-sm active:scale-95'
+                : 'bg-slate-950/40 border-slate-800/60 text-slate-600 cursor-not-allowed opacity-40'
             }`}
           >
-            <div className="flex items-center gap-1 font-bold text-xs">
+            <div className="flex items-center gap-1.5 font-bold text-xs">
               <ArrowUp className="w-4 h-4 text-blue-400 shrink-0" />
               <span>Recto</span>
             </div>
-            <span className="text-[10px] font-mono text-slate-400">{countRecto}</span>
+            <span className="text-[10px] font-mono text-slate-400 font-tabular">{countRecto}</span>
           </button>
 
           {/* Giro Derecha */}
@@ -828,33 +844,33 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
             type="button"
             disabled={!movimientosHabilitados}
             onClick={() => handleMovimiento('derecha')}
-            className={`touch-btn py-2.5 px-2 rounded-xl border flex flex-col items-center justify-center gap-1 transition ${
+            className={`touch-btn min-h-[46px] py-2.5 px-2 rounded-xl border flex flex-col items-center justify-center gap-1 transition ${
               movimientosHabilitados
-                ? 'bg-slate-800 hover:bg-slate-700 border-slate-700 hover:border-blue-500/50 text-slate-200 cursor-pointer shadow-sm active:scale-95 transition-transform'
-                : 'bg-slate-800/30 border-slate-800/60 text-slate-600 cursor-not-allowed opacity-50'
+                ? 'bg-slate-800/90 hover:bg-slate-700/90 border-slate-700 hover:border-blue-500/50 text-slate-200 cursor-pointer shadow-sm active:scale-95'
+                : 'bg-slate-950/40 border-slate-800/60 text-slate-600 cursor-not-allowed opacity-40'
             }`}
           >
-            <div className="flex items-center gap-1 font-bold text-xs">
+            <div className="flex items-center gap-1.5 font-bold text-xs">
               <ArrowRight className="w-4 h-4 text-blue-400 shrink-0" />
               <span>Der</span>
             </div>
-            <span className="text-[10px] font-mono text-slate-400">{countDerecha}</span>
+            <span className="text-[10px] font-mono text-slate-400 font-tabular">{countDerecha}</span>
           </button>
         </div>
 
-        {/* Texto de ayuda sobre estado de giros */}
+        {/* Micro-aviso sobre giros */}
         <div className="mt-2 text-center">
           {totalSalidas === 0 ? (
             <p className="text-[10px] text-slate-500">
               Deben cruzar vehículos antes de registrar giros.
             </p>
           ) : !movimientosHabilitados ? (
-            <p className="text-[10px] text-amber-400/90 font-medium">
-              Ya se registraron movimientos para todos los vehículos que cruzaron.
+            <p className="text-[10px] text-emerald-400/90 font-medium">
+              ✓ Giros al día con todos los vehículos cruzados.
             </p>
           ) : (
-            <p className="text-[10px] text-blue-400 font-medium">
-              Registra el giro correspondiente a los vehículos que ya cruzaron.
+            <p className="text-[10px] text-amber-400/90 font-medium">
+              Hay {girosPendientes} cruce(s) pendiente(s) de asignar giro.
             </p>
           )}
         </div>
