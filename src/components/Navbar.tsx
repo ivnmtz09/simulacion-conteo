@@ -11,7 +11,8 @@ import {
   History,
   Trash2,
   Users,
-  Car
+  Car,
+  Home
 } from 'lucide-react';
 import type { SesionConteo } from '../types/conteo';
 import { LogoIsotipo } from './LogoIsotipo';
@@ -21,8 +22,9 @@ interface NavbarProps {
   sesionActiva: SesionConteo | null;
   totalEventos: number;
   totalEnPapelera?: number;
-  vistaActiva: 'conteo' | 'eventos' | 'historial' | 'papelera';
-  onCambiarVista: (vista: 'conteo' | 'eventos' | 'historial' | 'papelera') => void;
+  vistaActiva: 'landing' | 'conteo' | 'eventos' | 'historial' | 'papelera';
+  onCambiarVista: (vista: 'landing' | 'conteo' | 'eventos' | 'historial' | 'papelera') => void;
+  onIrALanding?: () => void;
   onAbrirAuth: () => void;
   onCerrarSesion: () => void;
   onAbrirNuevaSesion: () => void;
@@ -41,6 +43,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   totalEnPapelera,
   vistaActiva,
   onCambiarVista,
+  onIrALanding,
   onAbrirAuth,
   onCerrarSesion,
   onAbrirNuevaSesion,
@@ -62,15 +65,19 @@ export const Navbar: React.FC<NavbarProps> = ({
       <div className="max-w-7xl mx-auto px-3 sm:px-6 py-2.5 flex flex-col gap-2">
         {/* Top bar: Brand + Switcher de Módulo + Session info + User actions */}
         <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
+          <div
+            onClick={onIrALanding}
+            className={`flex items-center gap-3 min-w-0 ${onIrALanding ? 'cursor-pointer group' : ''}`}
+            title="Ir a Inicio"
+          >
             {/* Logo Isotipo Uniguajira */}
-            <div className="relative group shrink-0">
+            <div className="relative shrink-0 group-hover:scale-105 transition">
               <LogoIsotipo className="w-9 h-9 drop-shadow-md" />
             </div>
 
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-black tracking-tight text-sm sm:text-base text-white">
+                <span className="font-black tracking-tight text-sm sm:text-base text-white group-hover:text-blue-400 transition">
                   Aforo & Conteo
                 </span>
 
@@ -248,6 +255,20 @@ export const Navbar: React.FC<NavbarProps> = ({
         {/* Pestañas de navegación en Desktop (md+) */}
         <div className="hidden md:flex items-center justify-between border-t border-slate-800/80 pt-1.5">
           <nav className="flex items-center gap-1.5 sm:gap-2">
+            {onIrALanding && (
+              <button
+                onClick={onIrALanding}
+                className={`touch-btn flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer ${
+                  vistaActiva === 'landing'
+                    ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                }`}
+              >
+                <Home className="w-4 h-4" />
+                <span>Inicio</span>
+              </button>
+            )}
+
             <button
               onClick={() => onCambiarVista('conteo')}
               className={`touch-btn flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer ${

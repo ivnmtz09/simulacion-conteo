@@ -5,6 +5,7 @@ import {
   auth,
   db,
   onAuthStateChanged,
+  getRedirectResult,
   signOut,
   collection,
   doc,
@@ -30,30 +31,99 @@ import { PapeleraSesiones } from './components/PapeleraSesiones';
 import { SemaforoCronometro } from './components/SemaforoCronometro';
 import { SplashScreen } from './components/SplashScreen';
 import { NotFoundPage } from './components/NotFoundPage';
+import { LandingPage } from './components/LandingPage';
 import { VehiculoIcono } from './components/VehiculoIcono';
 import { exportarEventosXLSX, exportarEventosCSV } from './lib/exportUtils';
 import { esCorreoAutorizado, esUsuarioAforoUniversitario } from './config/equipo';
 import { DashboardAforoUni } from './components/aforoUni/DashboardAforoUni';
 import { PlusCircle, Activity, StopCircle, Users, MapPin, Clock, Eye } from 'lucide-react';
 
+type VistaApp = 'landing' | 'conteo' | 'eventos' | 'historial' | 'papelera';
+
+function resolverRuta(path: string, user: string | null): { vista: VistaApp; modulo: 'vial' | 'universitario' | null; invalida: boolean } {
+  const normalizado = path.toLowerCase().replace(/\/+$/, '') || '/';
+  if (normalizado === '/' || normalizado === '/landing' || normalizado === '/inicio') {
+    if (!user || normalizado === '/landing' || normalizado === '/inicio') {
+      return { vista: 'landing', modulo: null, invalida: false };
+    }
+    return { vista: 'conteo', modulo: 'vial', invalida: false };
+  }
+  if (normalizado === '/conteo' || normalizado === '/vial') {
+    return { vista: 'conteo', modulo: 'vial', invalida: false };
+  }
+  if (normalizado === '/universitario' || normalizado === '/aforo-uni') {
+    return { vista: 'conteo', modulo: 'universitario', invalida: false };
+  }
+  if (normalizado === '/eventos') {
+    return { vista: 'eventos', modulo: null, invalida: false };
+  }
+  if (normalizado === '/historial' || normalizado === '/sesiones') {
+    return { vista: 'historial', modulo: null, invalida: false };
+  }
+  if (normalizado === '/papelera') {
+    return { vista: 'papelera', modulo: null, invalida: false };
+  }
+  return { vista: 'landing', modulo: null, invalida: true };
+}
+
 export default function App() {
   const [authLoading, setAuthLoading] = useState(true);
   const [rutaInvalida, setRutaInvalida] = useState(() => {
     const path = typeof window !== 'undefined' ? window.location.pathname : '/';
-    const validPaths = ['/', '', '/conteo', '/eventos', '/historial', '/sesiones', '/papelera'];
-    return !validPaths.includes(path);
+    return resolverRuta(path, null).invalida;
   });
   const [usuarioActual, setUsuarioActual] = useState<string | null>(null);
   const [sesionActiva, setSesionActiva] = useState<SesionConteo | null>(null);
   const [sesiones, setSesiones] = useState<SesionConteo[]>([]);
   const [eventos, setEventos] = useState<EventoConteo[]>([]);
   const [todosLosEventos, setTodosLosEventos] = useState<EventoConteo[]>([]);
-  const [vistaActiva, setVistaActiva] = useState<'conteo' | 'eventos' | 'historial' | 'papelera'>('conteo');
+  const [vistaActiva, setVistaActiva] = useState<VistaApp>(() => {
+    const path = typeof window !== 'undefined' ? window.location.pathname : '/';
+    return resolverRuta(path, null).vista;
+  });
   const [modoVistaVehiculos, setModoVistaVehiculos] = useState<'mis_roles' | 'todos'>('mis_roles');
-  const [moduloSeleccionado, setModuloSeleccionado] = useState<'vial' | 'universitario' | null>(null);
+  const [moduloSeleccionado, setModuloSeleccionado] = useState<'vial' | 'universitario' | null>(() => {
+    const path = typeof window !== 'undefined' ? window.location.pathname : '/';
+    return resolverRuta(path, null).modulo;
+  });
 
   const moduloActivo: 'vial' | 'universitario' =
     moduloSeleccionado || (usuarioActual && esUsuarioAforoUniversitario(usuarioActual) ? 'universitario' : 'vial');
+
+  const navegar = (nuevaVista: VistaApp, nuevoModulo?: 'vial' | 'universitario' | null) => {
+    setVistaActiva(nuevaVista);
+    if (nuevoModulo !== undefined && nuevoModulo !== null) {
+      setModuloSeleccionado(nuevoModulo);
+    }
+    let targetPath = '/';
+    if (nuevaVista === 'landing') {
+      targetPath = usuarioActual ? '/landing' : '/';
+    } else if (nuevaVista === 'conteo') {
+      const mod = nuevoModulo || moduloSeleccionado || (usuarioActual && esUsuarioAforoUniversitario(usuarioActual) ? 'universitario' : 'vial');
+      targetPath = mod === 'universitario' ? '/universitario' : '/conteo';
+    } else if (nuevaVista === 'eventos') {
+      targetPath = '/eventos';
+    } else if (nuevaVista === 'historial') {
+      targetPath = '/historial';
+    } else if (nuevaVista === 'papelera') {
+      targetPath = '/papelera';
+    }
+
+    if (typeof window !== 'undefined' && window.location.pathname !== targetPath) {
+      window.history.pushState(null, '', targetPath);
+    }
+  };
+
+  useEffect(() => {
+    const handlePopState = () => {
+      const { vista, modulo, invalida } = resolverRuta(window.location.pathname, usuarioActual);
+      setRutaInvalida(invalida);
+      setVistaActiva(vista);
+      if (modulo) setModuloSeleccionado(modulo);
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [usuarioActual]);
 
   // Colas FIFO en memoria para cada tipo de vehículo (compatibilidad)
   const [colasMemoria, setColasMemoria] = useState<Record<string, number[]>>({
@@ -84,8 +154,26 @@ export default function App() {
   const [modalEditarAbierto, setModalEditarAbierto] = useState(false);
   const [sesionParaEditar, setSesionParaEditar] = useState<SesionConteo | null>(null);
 
-  // Escuchar estado de autenticación en Firebase restringido a lista blanca
+  // Escuchar estado de autenticación en Firebase restringido a lista blanca o dominio institucional
   useEffect(() => {
+    // Manejar retorno de redirección en navegadores móviles
+    getRedirectResult(auth)
+      .then(async (result) => {
+        if (result && result.user && result.user.email) {
+          if (esCorreoAutorizado(result.user.email)) {
+            setUsuarioActual(result.user.email);
+            setModalAuthAbierto(false);
+          } else {
+            await signOut(auth);
+            setUsuarioActual(null);
+            setModalAuthAbierto(true);
+          }
+        }
+      })
+      .catch((err) => {
+        console.warn('Redirect auth result warning:', err);
+      });
+
     const unsub = onAuthStateChanged(auth, async (user) => {
       try {
         if (user && user.email) {
@@ -93,7 +181,7 @@ export default function App() {
             setUsuarioActual(user.email);
             setModalAuthAbierto(false);
           } else {
-            // Si el correo autenticado no pertenece al equipo, cerrar sesión
+            // Si el correo autenticado no pertenece a la institución o al equipo, cerrar sesión
             await signOut(auth);
             setUsuarioActual(null);
             setModalAuthAbierto(true);
@@ -215,6 +303,8 @@ export default function App() {
 
   // Listener para todos los eventos (para reportes de historial)
   useEffect(() => {
+    if (!usuarioActual) return;
+
     try {
       const unsub = onSnapshot(collection(db, 'eventos'), (snapshot) => {
         const docs: EventoConteo[] = snapshot.docs.map((d) => ({
@@ -229,7 +319,7 @@ export default function App() {
     } catch {
       // Ignorar en offline
     }
-  }, []);
+  }, [usuarioActual]);
 
   // Actualizar cola en memoria de un tipo de vehículo
   const handleActualizarCola = (tipo: string, nuevaCola: number[]) => {
@@ -332,7 +422,7 @@ export default function App() {
     setUsuarioActual(null);
     setSesiones([]);
     setSesionActiva(null);
-    setModalAuthAbierto(true);
+    navegar('landing');
   };
 
   const handleCerrarSesionActiva = async () => {
@@ -499,6 +589,34 @@ export default function App() {
     );
   }
 
+  // Si la vista activa es Landing (o usuario no autenticado en ruta raíz), renderizar LandingPage
+  if (
+    vistaActiva === 'landing' ||
+    (!usuarioActual && (typeof window === 'undefined' || window.location.pathname === '/' || window.location.pathname === '/landing' || vistaActiva === 'conteo'))
+  ) {
+    return (
+      <>
+        <LandingPage
+          usuarioActual={usuarioActual}
+          onAbrirAuth={() => setModalAuthAbierto(true)}
+          onIrAlConteo={(mod) => {
+            if (mod) setModuloSeleccionado(mod);
+            navegar('conteo', mod);
+          }}
+        />
+        <AuthModal
+          abierto={modalAuthAbierto}
+          onCerrar={() => setModalAuthAbierto(false)}
+          onExito={(email) => {
+            setUsuarioActual(email);
+            setModalAuthAbierto(false);
+            navegar('conteo');
+          }}
+        />
+      </>
+    );
+  }
+
   // Si el módulo activo es universitario, renderizar DashboardAforoUni
   if (usuarioActual && moduloActivo === 'universitario') {
     return (
@@ -520,11 +638,15 @@ export default function App() {
         totalEventos={eventos.filter((e) => !e.enPapelera).length}
         totalEnPapelera={sesiones.filter((s) => Boolean(s.enPapelera)).length}
         vistaActiva={vistaActiva}
-        onCambiarVista={setVistaActiva}
+        onCambiarVista={(v) => navegar(v)}
+        onIrALanding={() => navegar('landing')}
         onAbrirAuth={() => setModalAuthAbierto(true)}
         onCerrarSesion={handleCerrarSesionAuth}
         moduloActivo={moduloActivo}
-        onCambiarModulo={setModuloSeleccionado}
+        onCambiarModulo={(m) => {
+          setModuloSeleccionado(m);
+          navegar('conteo', m);
+        }}
         onAbrirNuevaSesion={() => {
           if (!usuarioActual) {
             setModalAuthAbierto(true);

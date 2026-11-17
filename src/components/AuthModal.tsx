@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { X, ShieldAlert, RefreshCw, CheckCircle2 } from 'lucide-react';
-import { signInWithPopup, signOut, auth, googleProvider } from '../lib/firebase';
+import { X, ShieldAlert, RefreshCw, CheckCircle2, Smartphone } from 'lucide-react';
+import { signInWithPopup, signInWithRedirect, signOut, auth, googleProvider } from '../lib/firebase';
 import { esCorreoAutorizado, CORREOS_EQUIPO } from '../config/equipo';
 import { LogoIsotipo } from './LogoIsotipo';
 
@@ -23,6 +23,18 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   if (!abierto) return null;
 
+  const handleLoginGoogleRedirect = async () => {
+    setCargando(true);
+    setErrorMensaje(null);
+    try {
+      await signInWithRedirect(auth, googleProvider);
+    } catch (err: any) {
+      console.error('Error con redirección de Google:', err);
+      setErrorMensaje(err.message || 'Error al iniciar redirección de Google.');
+      setCargando(false);
+    }
+  };
+
   const handleLoginGoogle = async () => {
     setCargando(true);
     setCorreoRechazado(null);
@@ -32,7 +44,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       const result = await signInWithPopup(auth, googleProvider);
       const email = result.user.email;
 
-      // Validación inmediata contra la lista blanca
+      // Validación inmediata contra la lista blanca o dominio institucional
       if (email && esCorreoAutorizado(email)) {
         onExito(email);
         onCerrar();
@@ -44,9 +56,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     } catch (err: any) {
       console.error('Error durante Google Sign-In:', err);
       if (err.code === 'auth/popup-closed-by-user') {
-        setErrorMensaje('Se cerró la ventana de inicio de sesión de Google.');
+        setErrorMensaje('Se cerró la ventana emergente de Google. Si estás en un teléfono o se bloqueó la ventana, usa el botón de "Iniciar con Redirección Móvil".');
       } else if (err.code === 'auth/popup-blocked') {
-        setErrorMensaje('Tu navegador bloqueó la ventana emergente de Google. Permite las ventanas emergentes para continuar.');
+        setErrorMensaje('Tu navegador bloqueó la ventana emergente. Usa la opción de Redirección Móvil para iniciar sesión.');
       } else {
         setErrorMensaje(err.message || 'Error al autenticar con Google.');
       }
@@ -149,8 +161,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               </div>
             )}
 
-            {/* BOTÓN ÚNICO DE GOOGLE SIGN-IN */}
-            <div>
+            {/* BOTONES DE GOOGLE SIGN-IN (VENTANA Y REDIRECCIÓN) */}
+            <div className="space-y-2">
               <button
                 type="button"
                 onClick={handleLoginGoogle}
@@ -177,6 +189,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   />
                 </svg>
                 <span>{cargando ? 'Conectando con Google...' : 'Iniciar sesión con Google'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleLoginGoogleRedirect}
+                disabled={cargando}
+                className="touch-btn w-full py-2.5 px-3 rounded-xl font-semibold text-xs text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-700 border border-slate-700 flex items-center justify-center gap-2 transition cursor-pointer"
+                title="Recomendado si estás en celular o tu navegador bloquea ventanas emergentes"
+              >
+                <Smartphone className="w-3.5 h-3.5 text-blue-400" />
+                <span>¿En celular o ventana bloqueada? Iniciar con Redirección</span>
               </button>
             </div>
 
