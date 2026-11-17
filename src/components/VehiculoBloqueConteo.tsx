@@ -450,7 +450,7 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
   };
 
   return (
-    <div className="relative bg-gradient-to-b from-slate-900/95 via-slate-900/90 to-slate-950/95 border border-slate-700/70 rounded-3xl p-4 sm:p-5 shadow-2xl backdrop-blur-xl flex flex-col justify-between transition-all hover:border-slate-600/90">
+    <div className="relative overflow-hidden bg-gradient-to-b from-slate-900/95 via-slate-900/90 to-slate-950/95 border border-slate-700/70 rounded-3xl p-4 sm:p-5 shadow-2xl backdrop-blur-xl flex flex-col justify-between transition-all hover:border-slate-600/90">
       {/* Toast Flotante Destacado para Deshacer Inmediato */}
       {mensajeToast && (
         <div className="absolute top-3 left-3 right-3 z-30 bg-slate-950/95 border border-amber-400/80 text-amber-200 px-3.5 py-2.5 rounded-2xl text-xs font-semibold shadow-2xl flex items-center justify-between gap-2.5 animate-in fade-in slide-in-from-top-2 duration-200 backdrop-blur-md">
@@ -475,44 +475,64 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
       )}
 
       <div>
-        {/* ENCABEZADO: TIPO DE VEHÍCULO + PIPELINE EN PARALELO + BOTÓN DESHACER DESTACADO */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3.5 border-b border-slate-800/90 gap-3">
-          <div className="flex items-center gap-3">
-            <div className={`p-2.5 rounded-2xl ${info.badgeBg} ${info.color} flex items-center justify-center shrink-0 border ${info.badgeBorder} shadow-inner`}>
-              <VehiculoIcono tipo={tipo} className="w-6 h-6" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className={`text-base font-black tracking-tight ${info.color}`}>
-                  {info.nombre}
-                </h3>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-slate-300 font-bold">
-                  {totalSalidas} cruces
-                </span>
+        {/* ENCABEZADO RESPONSIVO EN 2 FILAS: IDENTIDAD + DESHACER ARRIBA, PIPELINE COLA->SEMÁFORO ABAJO */}
+        <div className="pb-3.5 border-b border-slate-800/90 space-y-3">
+          {/* Fila 1: Vehículo + Badge + Botón Deshacer (nunca se desborda) */}
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className={`p-2.5 rounded-2xl ${info.badgeBg} ${info.color} flex items-center justify-center shrink-0 border ${info.badgeBorder} shadow-inner`}>
+                <VehiculoIcono tipo={tipo} className="w-6 h-6" />
               </div>
-              <p className="text-[11px] text-slate-400 leading-none mt-1">
-                {info.subtitulo}
-              </p>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className={`text-base font-black tracking-tight ${info.color} truncate`}>
+                    {info.nombre}
+                  </h3>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-slate-300 font-bold whitespace-nowrap shrink-0">
+                    {totalSalidas} {totalSalidas === 1 ? 'cruce' : 'cruces'}
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-400 leading-tight mt-0.5 truncate">
+                  {info.subtitulo}
+                </p>
+              </div>
             </div>
+
+            {/* BOTÓN DESHACER (UNDO) SIEMPRE ALINEADO DENTRO DE LA TARJETA */}
+            <button
+              type="button"
+              disabled={!ultimoEvento || deshaciendo}
+              onClick={handleDeshacer}
+              title={ultimoEvento ? `Deshacer: ${getDescripcionAccion(ultimoEvento).accion}` : 'Sin acciones para deshacer'}
+              aria-label="Deshacer última acción"
+              className={`touch-btn group h-9 sm:h-10 px-2.5 sm:px-3 rounded-xl sm:rounded-2xl border flex items-center gap-1.5 transition-all cursor-pointer active:scale-90 shrink-0 ${
+                ultimoEvento
+                  ? 'bg-amber-500/25 text-amber-200 hover:bg-amber-500 hover:text-slate-950 border-amber-400/60 shadow-md shadow-amber-500/20 font-bold text-xs'
+                  : 'bg-slate-800/20 border-slate-800/50 text-slate-600 cursor-not-allowed opacity-30 text-xs'
+              }`}
+            >
+              <Undo2 className={`w-4 h-4 transition-transform duration-300 shrink-0 ${animandoUndo ? '-rotate-90 text-amber-300 scale-125' : ''}`} />
+              <span>Deshacer</span>
+            </button>
           </div>
 
-          {/* INDICADORES DE COLA (N) Y SERVIDOR (M) + BOTÓN DESHACER PROMINENTE */}
-          <div className="flex items-center gap-2 self-end sm:self-center">
+          {/* Fila 2: Pipeline Visual Cola (N) ➔ Semáforo (M) a ancho completo */}
+          <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
             {/* Pipeline Visual: Cola (N) */}
             <div
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-2xl border font-mono transition-all ${
+              className={`flex items-center justify-between gap-2 px-3 py-2 rounded-2xl border font-mono transition-all min-w-0 ${
                 enCola > 0
                   ? 'bg-amber-500/20 border-amber-500/60 text-amber-300 shadow-sm shadow-amber-500/10'
                   : 'bg-slate-950/80 border-slate-800 text-slate-400'
               }`}
             >
-              <Users className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-              <div className="flex flex-col text-left leading-none">
-                <div className="flex items-center gap-1">
-                  <span className="text-[9px] uppercase font-bold text-slate-400">En Cola</span>
+              <div className="flex items-center gap-2 min-w-0">
+                <Users className="w-4 h-4 text-amber-400 shrink-0" />
+                <div className="flex flex-col text-left leading-none min-w-0">
+                  <span className="text-[9px] uppercase font-bold text-slate-400 truncate">En Cola</span>
                   {parqueadosEnCola > 0 && (
                     <span
-                      className="text-[9px] font-black px-1 py-0.2 rounded bg-amber-500/30 text-amber-200 border border-amber-500/40 inline-flex items-center gap-0.5"
+                      className="text-[9px] font-black px-1 py-0.2 mt-0.5 rounded bg-amber-500/30 text-amber-200 border border-amber-500/40 inline-flex items-center gap-0.5 w-fit"
                       title={`${parqueadosEnCola} vehículo(s) parqueado(s) en carril`}
                     >
                       <CircleParking className="w-2.5 h-2.5 text-amber-300 shrink-0" />
@@ -520,43 +540,26 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
                     </span>
                   )}
                 </div>
-                <span className="text-base font-black text-white mt-0.5 font-tabular">{enCola}</span>
               </div>
+              <span className="text-lg font-black text-white font-tabular shrink-0">{enCola}</span>
             </div>
 
-            <ChevronRight className="w-3.5 h-3.5 text-slate-600 shrink-0 hidden sm:block" />
+            <ChevronRight className="w-4 h-4 text-slate-600 shrink-0" />
 
             {/* Pipeline Visual: Servidor (M) */}
             <div
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-2xl border font-mono transition-all ${
+              className={`flex items-center justify-between gap-2 px-3 py-2 rounded-2xl border font-mono transition-all min-w-0 ${
                 enServidor > 0
                   ? 'bg-cyan-500/20 border-cyan-500/60 text-cyan-300 shadow-sm shadow-cyan-500/10'
                   : 'bg-slate-950/80 border-slate-800 text-slate-400'
               }`}
             >
-              <Timer className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
-              <div className="flex flex-col text-left leading-none">
-                <span className="text-[9px] uppercase font-bold text-slate-400">En Semáforo</span>
-                <span className="text-base font-black text-white mt-0.5 font-tabular">{enServidor}</span>
+              <div className="flex items-center gap-2 min-w-0">
+                <Timer className="w-4 h-4 text-cyan-400 shrink-0" />
+                <span className="text-[9px] uppercase font-bold text-slate-400 leading-tight truncate">En Semáforo</span>
               </div>
+              <span className="text-lg font-black text-white font-tabular shrink-0">{enServidor}</span>
             </div>
-
-            {/* BOTÓN DESHACER (UNDO) DESTACADO Y ERGONÓMICO */}
-            <button
-              type="button"
-              disabled={!ultimoEvento || deshaciendo}
-              onClick={handleDeshacer}
-              title={ultimoEvento ? `Deshacer: ${getDescripcionAccion(ultimoEvento).accion}` : 'Sin acciones para deshacer'}
-              aria-label="Deshacer última acción"
-              className={`touch-btn group h-10 px-3 rounded-2xl border flex items-center gap-1.5 transition-all cursor-pointer active:scale-90 shrink-0 ${
-                ultimoEvento
-                  ? 'bg-amber-500/25 text-amber-200 hover:bg-amber-500 hover:text-slate-950 border-amber-400/60 shadow-md shadow-amber-500/20 font-bold text-xs'
-                  : 'bg-slate-800/20 border-slate-800/50 text-slate-600 cursor-not-allowed opacity-30 text-xs'
-              }`}
-            >
-              <Undo2 className={`w-4 h-4 transition-transform duration-300 shrink-0 ${animandoUndo ? '-rotate-90 text-amber-300 scale-125' : ''}`} />
-              <span className="hidden sm:inline">Deshacer</span>
-            </button>
           </div>
         </div>
 
@@ -779,20 +782,20 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
 
         {/* TIEMPOS DE ESPERA Y SERVICIO (DESGLOSE TEORÍA DE COLAS) */}
         <div className="mt-2.5 bg-slate-950/50 p-2.5 rounded-2xl border border-slate-800/80 text-xs text-slate-300 space-y-1.5">
-          <div className="flex items-center justify-between text-[11px]">
+          <div className="flex flex-wrap items-center justify-between gap-1.5 text-[11px]">
             <div className="flex items-center gap-1 text-slate-400">
               <Timer className="w-3.5 h-3.5 text-blue-400 shrink-0" />
               <span>Promedios:</span>
             </div>
-            <div className="flex items-center gap-2 font-mono text-[11px]">
+            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 font-mono text-[11px]">
               <span title="Tiempo en cola">
                 Cola: <strong className="text-amber-300 font-tabular">{promedioCola}s</strong>
               </span>
-              <span>•</span>
+              <span className="text-slate-600">•</span>
               <span title="Tiempo en semáforo/servidor">
                 Semáf: <strong className="text-cyan-300 font-tabular">{promedioServidor}s</strong>
               </span>
-              <span>•</span>
+              <span className="text-slate-600">•</span>
               <span title="Tiempo total">
                 Total: <strong className="text-white font-tabular">{promedioTotal}s</strong>
               </span>
@@ -800,9 +803,9 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
           </div>
 
           {ultimaEspera && (
-            <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1 border-t border-slate-800 font-mono">
+            <div className="flex flex-wrap items-center justify-between gap-1.5 text-[10px] text-slate-400 pt-1 border-t border-slate-800 font-mono">
               <span className="text-slate-400 font-sans">Último cruce:</span>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <span>Cola: <strong className="text-amber-400 font-tabular">{ultimaEspera.cola}s</strong></span>
                 <span>Semáf: <strong className="text-cyan-400 font-tabular">{ultimaEspera.servidor}s</strong></span>
                 <span>Total: <strong className="text-white font-tabular">{ultimaEspera.total}s</strong></span>

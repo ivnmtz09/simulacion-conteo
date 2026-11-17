@@ -638,7 +638,11 @@ export default function App() {
         usuarioActual={usuarioActual}
         onCerrarSesionAuth={handleCerrarSesionAuth}
         moduloActivo={moduloActivo}
-        onCambiarModulo={setModuloSeleccionado}
+        onCambiarModulo={(m) => {
+          setModuloSeleccionado(m);
+          navegar('conteo', m);
+        }}
+        onIrALanding={() => navegar('landing')}
       />
     );
   }
@@ -974,7 +978,7 @@ export default function App() {
                     </button>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                     {tiposActivosEnSesion.map((tipo) => {
                       const eventosDelTipo = eventos.filter((e) => e.tipoVehiculo === tipo);
 

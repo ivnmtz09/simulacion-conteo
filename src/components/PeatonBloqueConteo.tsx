@@ -143,7 +143,7 @@ export const PeatonBloqueConteo: React.FC<PeatonBloqueConteoProps> = ({
   const pctSeguro = totalPeatones > 0 ? ((countCebra / totalPeatones) * 100).toFixed(1) : '0';
 
   return (
-    <div className="relative bg-gradient-to-b from-slate-900/95 via-slate-900/90 to-slate-950/95 border border-slate-700/70 rounded-3xl p-4 sm:p-5 shadow-2xl backdrop-blur-xl flex flex-col justify-between transition-all hover:border-slate-600/90">
+    <div className="relative overflow-hidden bg-gradient-to-b from-slate-900/95 via-slate-900/90 to-slate-950/95 border border-slate-700/70 rounded-3xl p-4 sm:p-5 shadow-2xl backdrop-blur-xl flex flex-col justify-between transition-all hover:border-slate-600/90">
       {/* Toast Flotante Destacado para Deshacer Inmediato */}
       {mensajeToast && (
         <div className="absolute top-3 left-3 right-3 z-30 bg-slate-950/95 border border-amber-400/80 text-amber-200 px-3.5 py-2.5 rounded-2xl text-xs font-semibold shadow-2xl flex items-center justify-between gap-2.5 animate-in fade-in slide-in-from-top-2 duration-200 backdrop-blur-md">
@@ -168,32 +168,26 @@ export const PeatonBloqueConteo: React.FC<PeatonBloqueConteoProps> = ({
       )}
 
       <div>
-        {/* ENCABEZADO CON ESTÉTICA OBSIDIAN GLASS Y BOTÓN DESHACER PROMINENTE */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3.5 border-b border-slate-800/90 gap-3">
-          <div className="flex items-center gap-3">
-            <div className={`p-2.5 rounded-2xl ${info.badgeBg} ${info.color} flex items-center justify-center shrink-0 border ${info.badgeBorder} shadow-inner`}>
-              <VehiculoIcono tipo="peaton" className="w-6 h-6" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className={`text-base font-black tracking-tight ${info.color}`}>
-                  {info.nombre}
-                </h3>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                  Flujo directo
-                </span>
+        {/* ENCABEZADO RESPONSIVO EN 2 FILAS SIN DESBORDAMIENTO */}
+        <div className="pb-3.5 border-b border-slate-800/90 space-y-2.5">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className={`p-2.5 rounded-2xl ${info.badgeBg} ${info.color} flex items-center justify-center shrink-0 border ${info.badgeBorder} shadow-inner`}>
+                <VehiculoIcono tipo="peaton" className="w-6 h-6" />
               </div>
-              <p className="text-[11px] text-slate-400 leading-none mt-1">
-                {info.subtitulo}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 self-end sm:self-center">
-            {/* Total Peatones */}
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-2xl border border-slate-800 bg-slate-950/80 font-mono">
-              <span className="text-xs text-slate-400 font-sans font-bold">Total:</span>
-              <span className="text-base font-black text-white font-tabular">{totalPeatones}</span>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className={`text-base font-black tracking-tight ${info.color} truncate`}>
+                    {info.nombre}
+                  </h3>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 whitespace-nowrap shrink-0">
+                    Flujo directo
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-400 leading-tight mt-0.5 truncate">
+                  {info.subtitulo}
+                </p>
+              </div>
             </div>
 
             {/* Botón Deshacer Prominente */}
@@ -203,15 +197,20 @@ export const PeatonBloqueConteo: React.FC<PeatonBloqueConteoProps> = ({
               onClick={handleDeshacer}
               title={ultimoEvento ? `Deshacer: ${getDescripcionCrucePeaton(ultimoEvento).accion}` : 'Sin cruces para deshacer'}
               aria-label="Deshacer último cruce peatonal"
-              className={`touch-btn group h-10 px-3 rounded-2xl border flex items-center gap-1.5 transition-all cursor-pointer active:scale-90 shrink-0 ${
+              className={`touch-btn group h-9 sm:h-10 px-2.5 sm:px-3 rounded-xl sm:rounded-2xl border flex items-center gap-1.5 transition-all cursor-pointer active:scale-90 shrink-0 ${
                 ultimoEvento
                   ? 'bg-amber-500/25 text-amber-200 hover:bg-amber-500 hover:text-slate-950 border-amber-400/60 shadow-md shadow-amber-500/20 font-bold text-xs'
                   : 'bg-slate-800/20 border-slate-800/50 text-slate-600 cursor-not-allowed opacity-30 text-xs'
               }`}
             >
               <Undo2 className={`w-4 h-4 transition-transform duration-300 shrink-0 ${animandoUndo ? '-rotate-90 text-amber-300 scale-125' : ''}`} />
-              <span className="hidden sm:inline">Deshacer</span>
+              <span>Deshacer</span>
             </button>
+          </div>
+
+          <div className="flex items-center justify-between px-3 py-2 rounded-2xl border border-slate-800 bg-slate-950/80 font-mono">
+            <span className="text-[10px] uppercase tracking-wider text-slate-400 font-sans font-bold">Total Peatones Registrados</span>
+            <span className="text-lg font-black text-white font-tabular">{totalPeatones}</span>
           </div>
         </div>
 

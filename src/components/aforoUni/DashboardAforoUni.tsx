@@ -12,8 +12,10 @@ import {
   ShieldCheck,
   DoorOpen,
   Car,
-  Users
+  Users,
+  Home
 } from 'lucide-react';
+import { LogoIsotipo } from '../LogoIsotipo';
 import {
   db,
   collection,
@@ -45,13 +47,15 @@ interface DashboardAforoUniProps {
   onCerrarSesionAuth: () => void;
   moduloActivo?: 'vial' | 'universitario';
   onCambiarModulo?: (modulo: 'vial' | 'universitario') => void;
+  onIrALanding?: () => void;
 }
 
 export const DashboardAforoUni: React.FC<DashboardAforoUniProps> = ({
   usuarioActual,
   onCerrarSesionAuth,
   moduloActivo = 'universitario',
-  onCambiarModulo
+  onCambiarModulo,
+  onIrALanding
 }) => {
   const [vistaActiva, setVistaActiva] = useState<'conteo' | 'bitacora' | 'historial'>('conteo');
   const [sesiones, setSesiones] = useState<SesionAforoUni[]>([]);
@@ -446,18 +450,30 @@ export const DashboardAforoUni: React.FC<DashboardAforoUniProps> = ({
       {/* HEADER EXCLUSIVO INSTITUCIONAL UNIGUAJIRA */}
       <header className="sticky top-0 z-30 bg-slate-900/95 backdrop-blur-md border-b border-slate-800 shadow-md">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 py-2.5 flex flex-col gap-2">
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center justify-between gap-2 sm:gap-3">
             {/* Branding Uniguajira + Aforo de Bloque */}
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-emerald-600 via-teal-600 to-sky-500 flex items-center justify-center font-black text-white text-xs shadow-sm shrink-0 border border-white/20">
-                AC
-              </div>
+            <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+              <button
+                type="button"
+                onClick={onIrALanding}
+                disabled={!onIrALanding}
+                className={`relative shrink-0 transition ${onIrALanding ? 'cursor-pointer hover:scale-105' : ''}`}
+                title="Ir a Inicio"
+              >
+                <LogoIsotipo className="w-9 h-9 drop-shadow-md" />
+              </button>
 
               <div className="min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-extrabold tracking-tight text-sm sm:text-base text-white">
+                <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={onIrALanding}
+                    disabled={!onIrALanding}
+                    className={`font-black tracking-tight text-sm sm:text-base text-white transition text-left ${onIrALanding ? 'cursor-pointer hover:text-emerald-400' : ''}`}
+                    title="Ir a Inicio"
+                  >
                     Aforo & Conteo
-                  </span>
+                  </button>
                   {onCambiarModulo ? (
                     <div className="inline-flex items-center p-0.5 rounded-xl bg-slate-950 border border-slate-800 text-[11px] shadow-inner">
                       <button
@@ -550,19 +566,19 @@ export const DashboardAforoUni: React.FC<DashboardAforoUniProps> = ({
               )}
 
               {/* Badge de usuario autorizado */}
-              <div className="flex items-center gap-1.5 bg-slate-800/80 border border-slate-700 rounded-xl px-2.5 py-1 text-xs">
+              <div className="flex items-center gap-1.5 bg-slate-800/80 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs">
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                 <span
-                  className="hidden md:inline text-slate-300 font-medium max-w-[130px] truncate font-mono text-[11px]"
+                  className="hidden sm:inline text-slate-200 font-bold max-w-[140px] truncate font-mono text-xs"
                   title={usuarioActual}
                 >
-                  {usuarioActual}
+                  {usuarioActual.split('@')[0]}
                 </span>
                 <button
                   type="button"
                   onClick={onCerrarSesionAuth}
                   title={`Cerrar sesión (${usuarioActual})`}
-                  className="touch-btn text-slate-400 hover:text-rose-400 cursor-pointer ml-1"
+                  className="touch-btn text-slate-400 hover:text-rose-400 cursor-pointer ml-0.5"
                 >
                   <LogOut className="w-3.5 h-3.5" />
                 </button>
@@ -571,12 +587,23 @@ export const DashboardAforoUni: React.FC<DashboardAforoUniProps> = ({
           </div>
 
           {/* Navigation Tabs */}
-          <div className="flex items-center justify-between border-t border-slate-800/80 pt-1.5">
-            <nav className="flex items-center gap-1 sm:gap-2">
+          <div className="flex items-center justify-between border-t border-slate-800/80 pt-1.5 gap-2">
+            <nav className="flex items-center gap-1 sm:gap-2 overflow-x-auto pb-0.5 sm:pb-0">
+              {onIrALanding && (
+                <button
+                  type="button"
+                  onClick={onIrALanding}
+                  className="touch-btn shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 transition cursor-pointer"
+                >
+                  <Home className="w-4 h-4" />
+                  <span>Inicio</span>
+                </button>
+              )}
+
               <button
                 type="button"
                 onClick={() => setVistaActiva('conteo')}
-                className={`touch-btn flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition cursor-pointer ${
+                className={`touch-btn shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition cursor-pointer ${
                   vistaActiva === 'conteo'
                     ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30'
                     : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
@@ -589,7 +616,7 @@ export const DashboardAforoUni: React.FC<DashboardAforoUniProps> = ({
               <button
                 type="button"
                 onClick={() => setVistaActiva('bitacora')}
-                className={`touch-btn flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition cursor-pointer ${
+                className={`touch-btn shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition cursor-pointer ${
                   vistaActiva === 'bitacora'
                     ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30'
                     : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
@@ -605,7 +632,7 @@ export const DashboardAforoUni: React.FC<DashboardAforoUniProps> = ({
               <button
                 type="button"
                 onClick={() => setVistaActiva('historial')}
-                className={`touch-btn flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition cursor-pointer ${
+                className={`touch-btn shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition cursor-pointer ${
                   vistaActiva === 'historial'
                     ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30'
                     : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'

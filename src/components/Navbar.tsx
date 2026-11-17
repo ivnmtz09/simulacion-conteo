@@ -64,22 +64,30 @@ export const Navbar: React.FC<NavbarProps> = ({
     <header className="sticky top-0 z-30 bg-slate-950/85 backdrop-blur-xl border-b border-slate-800/80 text-slate-100 pt-safe shadow-lg shadow-black/20">
       <div className="max-w-7xl mx-auto px-3 sm:px-6 py-2.5 flex flex-col gap-2">
         {/* Top bar: Brand + Switcher de Módulo + Session info + User actions */}
-        <div className="flex items-center justify-between gap-3">
-          <div
-            onClick={onIrALanding}
-            className={`flex items-center gap-3 min-w-0 ${onIrALanding ? 'cursor-pointer group' : ''}`}
-            title="Ir a Inicio"
-          >
-            {/* Logo Isotipo Uniguajira */}
-            <div className="relative shrink-0 group-hover:scale-105 transition">
+        <div className="flex items-center justify-between gap-2 sm:gap-3">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+            {/* Logo Isotipo Uniguajira (solo el logo/título navega a Landing) */}
+            <button
+              type="button"
+              onClick={onIrALanding}
+              disabled={!onIrALanding}
+              className={`relative shrink-0 transition ${onIrALanding ? 'cursor-pointer hover:scale-105' : ''}`}
+              title="Ir a Inicio"
+            >
               <LogoIsotipo className="w-9 h-9 drop-shadow-md" />
-            </div>
+            </button>
 
             <div className="min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-black tracking-tight text-sm sm:text-base text-white group-hover:text-blue-400 transition">
+              <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={onIrALanding}
+                  disabled={!onIrALanding}
+                  className={`font-black tracking-tight text-sm sm:text-base text-white transition text-left ${onIrALanding ? 'cursor-pointer hover:text-blue-400' : ''}`}
+                  title="Ir a Inicio"
+                >
                   Aforo & Conteo
-                </span>
+                </button>
 
                 {/* Switcher de Módulos (Vial vs Universitario) */}
                 {onCambiarModulo ? (
@@ -224,13 +232,13 @@ export const Navbar: React.FC<NavbarProps> = ({
             )}
 
             {usuarioActual ? (
-              <div className="flex items-center gap-1.5 bg-slate-900/90 border border-slate-800 rounded-xl px-2.5 py-1">
-                <User className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              <div className="flex items-center gap-1.5 bg-slate-900/90 border border-slate-800 rounded-xl px-2.5 py-1.5">
+                <User className="w-3.5 h-3.5 text-blue-400 shrink-0" />
                 <span
-                  className="hidden sm:inline text-xs text-slate-300 font-medium max-w-[110px] sm:max-w-[150px] truncate"
+                  className="hidden sm:inline text-xs text-slate-200 font-bold font-mono max-w-[140px] truncate"
                   title={usuarioActual}
                 >
-                  {usuarioActual}
+                  {usuarioActual.split('@')[0]}
                 </span>
                 <button
                   onClick={onCerrarSesion}
