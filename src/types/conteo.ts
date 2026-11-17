@@ -142,10 +142,29 @@ export interface EventoConteo {
   enPapelera?: boolean;
 }
 
+export interface ConfiguracionSemaforo {
+  verdeSeg: number;
+  amarillo1Seg: number;
+  rojoSeg: number;
+  amarillo2Seg: number;
+  cicloTotalSeg: number;
+}
+
+export interface PuntoAforoVial {
+  id: string;
+  nombre: string;
+  descripcion: string;
+  interseccion: string;
+  sentido: string;
+  configSemaforo: ConfiguracionSemaforo;
+}
+
 export interface SesionConteo {
   id: string;
   nombre: string;
   ubicacion?: string;
+  puntoId?: string;
+  configSemaforo?: ConfiguracionSemaforo;
   usuario: string; // Creador inicial
   participantes?: string[]; // Correos que se unieron a la sesión
   asignaciones?: Partial<Record<TipoVehiculo, string>>; // Clave: tipo, Valor: email asignado

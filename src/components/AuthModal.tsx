@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, ShieldAlert, RefreshCw, CheckCircle2 } from 'lucide-react';
 import { signInWithPopup, signOut, auth, googleProvider } from '../lib/firebase';
 import { esCorreoAutorizado, CORREOS_EQUIPO } from '../config/equipo';
+import { LogoIsotipo } from './LogoIsotipo';
 
 interface AuthModalProps {
   abierto: boolean;
@@ -104,10 +105,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         ) : (
           /* ESTADO: PANTALLA PRINCIPAL DE INICIO CON GOOGLE */
           <div className="space-y-4">
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-blue-600 via-sky-600 to-emerald-500 flex flex-col items-center justify-center mx-auto shadow-lg shadow-blue-500/20 text-white border border-white/20">
-              <span className="font-black text-xl leading-none">AC</span>
-              <span className="text-[8px] font-extrabold uppercase tracking-widest opacity-90">Uniguajira</span>
-            </div>
+            <LogoIsotipo className="w-16 h-16 mx-auto drop-shadow-xl" />
 
             <div>
               <h2 className="text-xl sm:text-2xl font-black text-white">
@@ -138,10 +136,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             <div className="bg-slate-950/60 border border-slate-800/80 rounded-2xl p-3 text-left">
               <div className="flex items-center gap-1.5 text-xs font-bold text-slate-300 mb-1">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Acceso Restringido</span>
+                <span>Acceso Institucional Uniguajira</span>
               </div>
               <p className="text-[11px] text-slate-400 leading-relaxed">
-                Ingresa con tu correo institucional de la Universidad de La Guajira (<code>@uniguajira.edu.co</code>) registrado en el equipo del proyecto.
+                Ingresa con tu correo institucional de la Universidad de La Guajira (<code>@uniguajira.edu.co</code>) para acceder a los aforos viales o universitarios.
               </p>
             </div>
 

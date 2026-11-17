@@ -336,8 +336,12 @@ export default function App() {
   };
 
   const handleCerrarSesionActiva = async () => {
-    if (!sesionActiva) return;
-    setModalFinalizarAbierto(true);
+    try {
+      if (!sesionActiva) return;
+      setModalFinalizarAbierto(true);
+    } catch (err) {
+      console.error('Error al abrir modal de finalización:', err);
+    }
   };
 
   const handleFinalizarSesionConfirmada = (idCerrada?: string) => {
@@ -858,6 +862,7 @@ export default function App() {
                           sesionId={sesionActiva.id}
                           usuario={usuarioActual || 'aforador@aforo.local'}
                           inicioCicloSemaforo={sesionActiva.inicioCicloSemaforo}
+                          configSemaforo={sesionActiva.configSemaforo}
                           colaMemoria={colasMemoria[tipo] || []}
                           servidorMemoria={servidorMemoria[tipo] || []}
                           onActualizarCola={(nuevaCola) => handleActualizarCola(tipo, nuevaCola)}
@@ -1012,7 +1017,11 @@ export default function App() {
           setSesionParaRestaurar(null);
         }}
         onConfirmarRestaurar={async (sesion, continuarConteo) => {
-          await handleRestaurarSesion(sesion, continuarConteo);
+          try {
+            await handleRestaurarSesion(sesion, continuarConteo);
+          } catch (err) {
+            console.error('Error al restaurar sesión:', err);
+          }
         }}
         onAbrirEditar={(sesion) => {
           setSesionParaEditar(sesion);

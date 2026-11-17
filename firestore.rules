@@ -2,41 +2,111 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: sesiones
+    //   - nombre: string
+    //   - usuario: string (email del creador)
+    //   - estado: string ('activa' | 'finalizada')
+    //   - fechaCreacion: string | timestamp
+    //
+    // Collection: eventos
+    //   - sesionId: string
+    //   - usuario: string (email del registrador)
+    //   - tipo: string
+    //   - timestamp: number | timestamp
+    //
+    // Collection: esperas
+    //   - sesionId: string
+    //   - usuario: string
+    //   - duracion: number
+    //
+    // Collection: ciclosSemaforo
+    //   - sesionId: string
+    //   - usuario: string
+    //   - verde: number, amarillo: number, rojo: number
+    //
+    // Collection: observaciones
+    //   - sesionId: string
+    //   - usuario: string
+    //   - texto: string
+    //
+    // Collection: admins
+    //   - Document ID: uid del administrador
+    //
+    // Collection: sesionesAforoUni
+    //   - bloque: string, puertaAcceso: string, aforoInicial: number, estado: string
+    //
+    // Collection: eventosAforoUni
+    //   - sesionId: string, tipo: string ('entrada' | 'salida'), cantidad: number
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
     // Función: verifica si el usuario está autenticado mediante Firebase Auth
     function isAuthenticated() {
       return request.auth != null;
     }
 
-    // Función: Lista blanca de los 5 correos institucionales del equipo de aforo
+    // Función: valida si un usuario es miembro/autorizado mediante dominio institucional @uniguajira.edu.co
+    // o pertenencia a las listas blancas de Aforo Vial (Punto 1 y Punto 2) y Aforo Universitario.
+    function esUsuarioAutorizado() {
+      return isAuthenticated() &&
+        'email' in request.auth.token &&
+        request.auth.token.email != null && (
+          request.auth.token.email.matches('.*@uniguajira[.]edu[.]co') ||
+          request.auth.token.email in [
+            // Correos existentes Punto 1 (Aforo Vial)
+            "ijesusmartinez@uniguajira.edu.co",
+            "llouissierra@uniguajira.edu.co",
+            "jenriqueiguaran@uniguajira.edu.co",
+            "ljangulo@uniguajira.edu.co",
+            "conoriozarate@uniguajira.edu.co",
+
+            // Nuevos correos Punto 2 (Aforo Vial)
+            "jazarate@uniguajira.edu.co",
+            "aprodriguezrodriguez@uniguajira.edu.co",
+            "scbeltran@uniguajira.edu.co",
+            "ymsalgado@uniguajira.edu.co",
+            "mjesusnavarro@uniguajira.edu.co",
+
+            // Correos Aforo Universitario
+            "janiez@uniguajira.edu.co",
+            "bcamilobrito@uniguajira.edu.co",
+            "sivanrodriguez@uniguajira.edu.co"
+          ]
+        );
+    }
+
+    // Función: verifica si el usuario está autorizado para el conteo de aforo vial
     function esDelEquipo() {
-      return request.auth != null && request.auth.token.email in [
-        "ijesusmartinez@uniguajira.edu.co",
-        "llouissierra@uniguajira.edu.co",
-        "jenriqueiguaran@uniguajira.edu.co",
-        "ljangulo@uniguajira.edu.co",
-        "conoriozarate@uniguajira.edu.co"
-      ];
+      return esUsuarioAutorizado();
     }
 
     // Función: verifica si el usuario es aforador universitario autorizado
     function esAforadorUniversitario() {
-      return request.auth != null && request.auth.token.email in [
-        "janiez@uniguajira.edu.co",
-        "bcamilobrito@uniguajira.edu.co",
-        "sivanrodriguez@uniguajira.edu.co"
-      ];
+      return esUsuarioAutorizado();
     }
 
     // Función: verifica si el usuario es administrador
     function isAdmin() {
       return isAuthenticated() && (
-        request.auth.token.admin == true ||
-        request.auth.token.email.matches('.*admin.*') ||
+        ('admin' in request.auth.token && request.auth.token.admin == true) ||
+        ('email' in request.auth.token && request.auth.token.email.matches('.*admin.*')) ||
         exists(/databases/$(database)/documents/admins/$(request.auth.uid))
       );
     }
 
-    // Reglas para la colección 'sesiones' (compartidas por el equipo de aforo)
+    // ===============================================================
+    // Reglas de Seguridad por Colección
+    // ===============================================================
+
+    // Reglas para la colección 'sesiones' (compartidas por el equipo de aforo vial)
     match /sesiones/{sesionId} {
       // Cualquier usuario del equipo puede crear una sesión
       allow create: if esDelEquipo() && request.resource.data.usuario == request.auth.token.email;
@@ -93,9 +163,9 @@ service cloud.firestore {
       );
     }
 
-    // Colección de administradores (solo lectura para usuarios del equipo)
+    // Colección de administradores (solo lectura para usuarios autorizados)
     match /admins/{uid} {
-      allow read: if esDelEquipo() || esAforadorUniversitario();
+      allow read: if esUsuarioAutorizado();
       allow write: if false; // Gestionado exclusivamente por consola de Firebase
     }
 

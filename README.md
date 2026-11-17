@@ -1,161 +1,165 @@
-# Simulador y Aforo de Tráfico Vial (PTV Vissim) 🚦🚗🏍️
+# Sistema de Levantamiento y Simulación de Aforo de Tráfico Vial (PTV Vissim)
 
-> **Progressive Web App (PWA)** de alta precisión para levantamiento de aforos vehiculares y peatonales en campo, análisis de comportamiento semafórico continuo y calibración de tiempos de espera basada en **Teoría de Colas** para modelos de micro-simulación en **PTV Vissim**.
+Plataforma Web Progresiva (PWA) de alta precisión para el levantamiento de aforos vehiculares y peatonales en campo, modelado de comportamiento semafórico continuo y calibración empírica de tiempos de demora basada en Teoría de Colas para modelos de micro-simulación en PTV Vissim.
 
----
-
-## 📋 Descripción General
-
-Esta plataforma permite a brigadas de aforadores registrar de forma colaborativa, en tiempo real y offline-resiliente, el flujo vehicular y peatonal en intersecciones semaforizadas.
-
-A diferencia de los contadores tradicionales de pulso, la aplicación implementa:
-1. Un **modelo formal de Teoría de Colas (Fila + Servidor)** que mide con exactitud de segundos el tiempo que un vehículo pasa esperando en la fila antes de alcanzar el semáforo y el tiempo que tarda en el semáforo antes de cruzar.
-2. Un **modelo de Ciclo Semafórico Continuo de 96 segundos** (18s Verde, 3s Amarillo, 72s Rojo, 3s Amarillo pre-verde) que determina de forma matemática y automática la fase de cruce (🟢 Verde, 🟡 Amarillo, 🔴 Rojo) de cada vehículo, liberando al aforador de la carga subjetiva de clasificar manualmente el estado de la luz.
-3. Soporte para **Vehículos Parqueados en Carril** que permanecen retenidos en cola sin poder avanzar al semáforo hasta ser desmarcados.
+Universidad de La Guajira — Facultad de Ingeniería.
 
 ---
 
-## 🚦 Modelo de Ciclo Semafórico Continuo (96 Segundos)
+## 1. Resumen Ejecutivo y Arquitectura
 
-El ciclo de la intersección corre de forma continua y matemática a partir de una única sincronización inicial en campo:
+El presente sistema permite a brigadas de campo registrar de forma simultánea, coordinada y con tolerancia a fallos de conectividad (offline-first) el flujo vehicular y peatonal en intersecciones semaforizadas de la malla vial urbana.
 
-$$\text{Duración total del ciclo} = 96 \text{ segundos}$$
+A diferencia de los instrumentos convencionales de aforo por pulso simple, esta plataforma incorpora:
 
-| Fase | Duración | Intervalo dentro del ciclo | Comportamiento |
-| :--- | :---: | :---: | :--- |
-| 🟢 **Verde** | 18 s | $0 \le t < 18 \text{ s}$ | Cruce habilitado (Respeta) |
-| 🟡 **Amarillo (post-verde)** | 3 s | $18 \le t < 21 \text{ s}$ | Fase de cambio / despeje |
-| 🔴 **Rojo** | 72 s | $21 \le t < 93 \text{ s}$ | Detención obligatoria (Infracción si cruza) |
-| 🟡 **Amarillo (pre-verde)** | 3 s | $93 \le t < 96 \text{ s}$ | Fase preparatoria de inicio de verde |
+1. **Modelo formal de Teoría de Colas (Cola FIFO + Servidor):** Mide con resolución de segundos el intervalo que cada unidad vehicular permanece en fila de espera ($W_q$) antes de arribar a la línea de detención, y el tiempo de atención en el servidor ($W_s$) hasta efectuar el cruce efectivo.
+2. **Motor Determinista de Ciclo Semafórico Continuo Multi-Sectorial:** Computa analíticamente en tiempo de ejecución la fase semafórica de cruce (Verde, Amarillo, Rojo) sin intervención subjetiva del aforador.
+3. **Módulo de Vehículos Parqueados e Interferencias:** Identifica unidades retenidas temporalmente en calzada que generan fricción lateral y bloqueo del carril.
+4. **Módulo de Aforo Peatonal Universitario:** Cuantifica la ocupación de accesos e instalaciones en bloques académicos.
+5. **Arquitectura Reactiva Distribuida:** Motor de sincronización en tiempo real sobre Firebase Cloud Firestore y autenticación unificada bajo el dominio institucional `uniguajira.edu.co`.
 
-### 1. Sincronización Colaborativa en Tiempo Real ($t_0$)
-- Cualquier integrante del equipo presiona **`"🟢 Sincronizar en inicio de VERDE"`** en el instante exacto en que la luz real cambia a verde.
-- El timestamp de referencia (`inicioCicloSemaforo = Date.now()`) se almacena en el documento de la sesión en Firestore y se propaga instantáneamente a todos los dispositivos conectados mediante listeners `onSnapshot`.
-- Todos los aforadores ven el mismo segundero en vivo, la misma fase y la misma cuenta regresiva calculada localmente en su navegador cada 250 ms (sin sobrecargar lecturas en base de datos).
+---
 
-### 2. Cálculo Determinista de la Fase de Cruce
-En el instante exacto en que se registra una salida vehicular ($t$):
+## 2. Puntos de Aforo y Parámetros Semafóricos
+
+El sistema dispone de configuraciones predeterminadas para los puntos de estudio en la Troncal del Caribe e intersecciones estratégicas de Riohacha:
+
+### Punto 1: Semáforo Calle 15 con Carrera 8
+- **Ubicación:** Troncal del Caribe (Sentido Riohacha hacia Santa Marta).
+- **Duración Total del Ciclo:** $T_1 = 95\text{ segundos}$.
+- **Distribución de Tiempos:**
+  - Fase Verde: $18\text{ s}$ ($[0, 18)\text{ s}$) — Cruce permitido.
+  - Fase Amarilla 1 (post-verde): $3\text{ s}$ ($[18, 21)\text{ s}$) — Intervalo de despeje hacia rojo.
+  - Fase Roja: $72\text{ s}$ ($[21, 93)\text{ s}$) — Detención obligatoria.
+  - Fase Amarilla 2 (pre-verde): $2\text{ s}$ ($[93, 95)\text{ s}$) — Intervalo preparatorio hacia verde.
+
+### Punto 2: Semáforo Cuatro Vías (Calle 15 con Carrera 15)
+- **Ubicación:** Intersección Cuatro Vías (Sentido Santa Marta hacia Riohacha).
+- **Duración Total del Ciclo:** $T_2 = 130\text{ segundos}$.
+- **Distribución de Tiempos:**
+  - Fase Verde: $25\text{ s}$ ($[0, 25)\text{ s}$) — Cruce permitido.
+  - Fase Amarilla 1 (post-verde): $3\text{ s}$ ($[25, 28)\text{ s}$) — Intervalo de despeje hacia rojo.
+  - Fase Roja: $99\text{ s}$ ($[28, 127)\text{ s}$) — Detención obligatoria.
+  - Fase Amarilla 2 (post-rojo / pre-verde): $3\text{ s}$ ($[127, 130)\text{ s}$) — Intervalo preparatorio hacia verde.
+
+---
+
+## 3. Formulación Matemática del Modelo
+
+### 3.1. Sincronización Temporal Inicial ($t_0$)
+En campo, cualquier integrante de la brigada registra el instante exacto en que la señal luminosa física inicia la fase verde mediante la función de sincronización. Dicho valor base ($t_0$) se almacena como marca temporal Unix en milisegundos y se difunde automáticamente a todos los nodos conectados.
+
+### 3.2. Evaluación de Fase y Posición en Ciclo
+Para cualquier evento ocurrido en el instante $t \ge t_0$:
+
 $$\Delta t = t - t_0$$
-$$\text{segundoEnCiclo} = (\Delta t / 1000) \pmod{96}$$
-$$\text{numeroCiclo} = \left\lfloor \frac{\Delta t / 1000}{96} \right\rfloor + 1$$
 
-El sistema asigna automáticamente:
-- Si $0 \le \text{segundoEnCiclo} < 18$ $\to$ `faseCruce = 'verde'`
-- Si $18 \le \text{segundoEnCiclo} < 21$ $\to$ `faseCruce = 'amarillo'`
-- Si $21 \le \text{segundoEnCiclo} < 93$ $\to$ `faseCruce = 'rojo'`
-- Si $93 \le \text{segundoEnCiclo} < 96$ $\to$ `faseCruce = 'amarillo'`
+$$\text{segundoEnCiclo} = \left(\frac{\Delta t}{1000}\right) \pmod T$$
 
-### 3. Re-sincronización y Calibración en Campo
-- Si la controladora física en calle sufre pequeñas variaciones temporales tras periodos prolongados, el sistema muestra un aviso discreto recomendando verificar la alineación después de 30 minutos.
-- El botón **`"Re-sincronizar"`** permite reajustar $t_0$ con un modal de confirmación. Los eventos históricos previamente guardados conservan intactos sus datos originales.
+$$\text{numeroCiclo} = \left\lfloor \frac{\Delta t / 1000}{T} \right\rfloor + 1$$
 
----
+Donde $T$ corresponde a la duración total del ciclo asignado a la intersección (95 s o 130 s).
 
-## ⏱️ Modelo de Teoría de Colas (Cola + Servidor)
-
-El flujo vehicular en cada carril o sentido se modela dividiendo el tiempo total de servicio en dos tramos independientes:
+### 3.3. Dinámica de Colas (Cola FIFO + Servidor)
+La trayectoria de cada vehículo se descompone en dos segmentos temporales medibles:
 
 ```text
-[Llegada a la Fila]  ──(Tiempo en Cola Wq)──>  [Frente / Semáforo]  ──(Tiempo en Servidor Ws)──>  [Cruce Efectivo]
-    horaEntradaCola                                horaLlegaServidor                                   horaSalida
+[Arribo a Cola] ────(Tiempo en Fila Wq)────> [Llegada a Semáforo] ────(Tiempo en Servidor Ws)────> [Cruce Efectivo]
+horaEntradaCola                               horaLlegaServidor                                      horaSalida
 ```
 
-### Los Tres Pasos del Conteo Vehicular:
-1. **`1. Entra cola`**: Registra `horaEntradaCola` cuando el vehículo se detiene al final de la fila. Incrementa **`En cola ahora: N`**.
-2. **`2. Al semáforo`**: Toma el vehículo más antiguo de la fila (**FIFO**), registra `horaLlegaServidor` y calcula el tiempo en fila:
-   $$W_q = \text{tiempoEnColaSeg} = \text{horaLlegaServidor} - \text{horaEntradaCola}$$
-   Mueve el vehículo al servidor, decrementa $N$ e incrementa **`En semáforo ahora: M`**.
-3. **`3. Cruza vehículo` (Único botón)**:
-   - **Habilitación estricta:** Solo se activa cuando hay vehículos al frente del semáforo ($M \ge 1$).
-   - Toma el vehículo más antiguo en el servidor (FIFO) y registra `horaSalida`.
-   - Calcula:
-     $$W_s = \text{tiempoEnServidorSeg} = \text{horaSalida} - \text{horaLlegaServidor}$$
-     $$W = \text{tiempoTotalSeg} = \text{horaSalida} - \text{horaEntradaCola} = W_q + W_s$$
-   - Evalúa automáticamente `faseCruce` según el ciclo de 96 s.
-   - Muestra retroalimentación visual inmediata (badge verde, amarillo o rojo).
-
-### Cruce Directo en Flujo Libre (Sin Cola)
-Para vehículos que cruzan la intersección sin detenerse en la fila ni en el semáforo, el botón **`"Registrar cruce directo (flujo libre)"`** permite registrar el evento con tiempos de espera en $0\text{ s}$, evaluando automáticamente la fase semafórica en el instante del clic.
+1. **Entrada a Cola:** Registra el instante en que el vehículo se detiene al final de la cola física (`horaEntradaCola`).
+2. **Llegada al Servidor:** Cuando el vehículo alcanza la primera posición de la línea de parada, se extrae el registro más antiguo de la cola mediante disciplina FIFO y se calcula:
+   $$W_q = t_{\text{servidor}} - t_{\text{cola}}$$
+3. **Cruce Efectivo:** Al atravesar la intersección, se registra `horaSalida` y se determinan:
+   $$W_s = t_{\text{salida}} - t_{\text{servidor}}$$
+   $$W = W_q + W_s = t_{\text{salida}} - t_{\text{cola}}$$
+4. **Cruce Directo (Flujo Libre):** Para vehículos que transitan en verde sin experimentar detención previa, los tiempos de espera se computan como $0\text{ s}$ y la fase semafórica se deriva analíticamente del instante del evento.
 
 ---
 
-## 🚗 Clasificación de Tránsito y Movimientos
+## 4. Clasificación Vehicular y Maniobras Direccionales
 
-### Categorías Vehiculares y Peatonales
-- 🏍️ **Moto:** Motocicletas particulares, mototaxis y motos eléctricas (tipo Ofero).
-- 🚗 **Carro:** Autos particulares y taxis.
-- 🚙 **Camioneta:** SUV, camperos y camionetas utilitarias.
-- 🚛 **Carga:** Camiones rígidos, furgones y tractocamiones.
-- 🚌 **Buses:** Buses de servicio público urbano, microbuses y busetas.
-- 🚶 **Peatón:** Transeúntes (Cruce por cebra, fuera de cebra o paso por andén).
+El sistema clasifica el parque automotor según la normativa de transporte y calibración de micro-simulación:
 
-### Giros y Maniobras Direccionales
-Registrados de manera independiente y vinculados a las salidas acumuladas:
-- ⬆️ **Recto**
-- ⬅️ **Izquierda**
-- ➡️ **Derecha**
+- **Moto:** Motocicletas de combustión, mototaxis y vehículos eléctricos ligeros (tipo Ofero).
+- **Carro:** Vehículos particulares y taxis de servicio público.
+- **Camioneta:** Utilitarios deportivos (SUV), vehículos camperos y camionetas de platón.
+- **Carga:** Camiones rígidos de dos o más ejes, furgones y tractocamiones.
+- **Buses:** Unidades de transporte colectivo urbano, busetas y microbuses.
+- **Peatón:** Transeúntes clasificados por cruce en cebra peatonal, fuera de cebra o tránsito sobre andén.
 
----
-
-## 👥 Colaboración y Trabajo en Equipo
-
-- **Sesiones Compartidas (`sesionId`):** Una sesión por intersección y turno compartida por toda la brigada.
-- **Roles Exclusivos:** Cada aforador elige qué vehículos contará. Los ya seleccionados por otro compañero aparecen bloqueados con su correo.
-- **Pantalla Focalizada:** Cada usuario solo ve en su móvil las tarjetas que le corresponden.
-- **Papelera de Reciclaje (Soft Delete):** Borrado suave con opción de restaurar o purgar sesiones y eventos eliminados por error.
+### Maniobras Direccionales
+- Recto (continuación sobre calzada principal)
+- Giro a la izquierda
+- Giro a la derecha
 
 ---
 
-## 🔒 Seguridad y Control de Acceso
+## 5. Control de Acceso y Seguridad
 
-- **Google Sign-In:** Autenticación institucional vía Firebase Auth.
-- **Lista Blanca de la Universidad de La Guajira:**
-  - `ijesusmartinez@uniguajira.edu.co`
-  - `llouissierra@uniguajira.edu.co`
-  - `jenriqueiguaran@uniguajira.edu.co`
-  - `ljangulo@uniguajira.edu.co`
-  - `conoriozarate@uniguajira.edu.co`
-- **Reglas de Seguridad Firestore (`firestore.rules`):** Validación estricta en base de datos en cada lectura y escritura.
+El esquema de seguridad se sustenta en Firebase Authentication y Reglas de Seguridad de Cloud Firestore:
 
----
-
-## 📊 Exportación y Compatibilidad VISSIM
-
-Descarga en formatos **Excel (.xlsx)** y **CSV** con soporte UTF-8:
-1. **Hoja 1 — Resumen VISSIM:** Volúmenes totales por categoría, cruces en Verde (cumplimiento), cruces en Amarillo, infracciones en Rojo, giros direccionales y tiempos promedios ($W_q, W_s, W$) listos para calibración en PTV Vissim.
-2. **Hoja 2 — Eventos Detallados:** Registro fila a fila con ID de evento, hora exacta de llegada a cola, hora al semáforo, hora de cruce, fase semafórica calculada, segundo en ciclo (0 a 92s) y número de ciclo.
-
----
-
-## 🛠️ Stack Tecnológico
-
-- **Frontend:** [React 19](https://react.dev/), [TypeScript](https://www.typescriptlang.org/), [Vite](https://vite.dev/)
-- **Estilos:** [Tailwind CSS v4](https://tailwindcss.com/), [Lucide React](https://lucide.dev/)
-- **Backend:** [Firebase Cloud Firestore](https://firebase.google.com/docs/firestore), [Firebase Auth](https://firebase.google.com/docs/auth), [Firebase Hosting](https://firebase.google.com/docs/hosting)
-- **PWA:** [vite-plugin-pwa](https://vite-pwa-org.netlify.app/) con Service Workers offline
-- **Exportación:** [SheetJS (xlsx)](https://docs.sheetjs.com/)
-- **Calidad de Código:** [Oxlint](https://oxc.rs/docs/guide/usage/linter.html)
+- **Dominio Institucional:** Acceso autorizado a usuarios con cuentas oficiales pertenecientes al dominio `@uniguajira.edu.co`.
+- **Listas de Brigada:** Definición de roles asignados por punto de conteo:
+  - **Brigada Punto 1 (Calle 15 con Carrera 8):**
+    - `ijesusmartinez@uniguajira.edu.co`
+    - `llouissierra@uniguajira.edu.co`
+    - `jenriqueiguaran@uniguajira.edu.co`
+    - `ljangulo@uniguajira.edu.co`
+    - `conoriozarate@uniguajira.edu.co`
+  - **Brigada Punto 2 (Cuatro Vías - Calle 15 con Carrera 15):**
+    - `jazarate@uniguajira.edu.co`
+    - `aprodriguezrodriguez@uniguajira.edu.co`
+    - `scbeltran@uniguajira.edu.co`
+    - `ymsalgado@uniguajira.edu.co`
+    - `mjesusnavarro@uniguajira.edu.co`
+  - **Brigada Aforo Peatonal Universitario:**
+    - `janiez@uniguajira.edu.co`
+    - `bcamilobrito@uniguajira.edu.co`
+    - `sivanrodriguez@uniguajira.edu.co`
+- **Reglas Declarativas (`firestore.rules`):** Verificación de procedencia de peticiones en lectura y escritura, garantizando segregación de roles y control de integridad en las colecciones `sesiones`, `eventos`, `sesionesAforoUni` y `eventosAforoUni`.
 
 ---
 
-## 🚀 Instalación y Despliegue Local
+## 6. Exportación de Datos y Compatibilidad con PTV Vissim
 
-### 1. Clonar el repositorio
+La plataforma genera reportes estructurados en formatos XLSX y CSV codificados en UTF-8:
+
+1. **Matriz de Resumen Operativo:** Volúmenes acumulados por categoría vehicular, discriminación de cruces en fase verde, ámbar o roja, tasas de giros direccionales y métricas de demora promedio ($W_q$, $W_s$, $W$) formateadas para su importación directa como matrices origen-destino y tablas de calibración en PTV Vissim.
+2. **Bitácora Detallada de Eventos:** Tabla cronológica con identificador único, tipo de vehículo, estampa de tiempo de entrada a cola, llegada a semáforo, salida efectiva, fase de ciclo calculada, segundo exacto de cruce y número de ciclo.
+
+---
+
+## 7. Pila Tecnológica
+
+- **Frontend:** React 19, TypeScript, Vite
+- **Estilos e Interfaz:** Tailwind CSS, Lucide React
+- **Capa de Persistencia y Tiempo Real:** Firebase Cloud Firestore
+- **Autenticación:** Firebase Authentication (Google Identity Provider)
+- **Despliegue y Alojamiento:** Firebase Hosting
+- **Capacidades Offline:** Service Workers con Workbox (`vite-plugin-pwa`)
+- **Procesamiento de Hojas de Cálculo:** SheetJS (xlsx)
+- **Análisis Estático de Código:** Oxlint
+
+---
+
+## 8. Procedimiento de Instalación y Ejecución Local
+
+### 8.1. Requisitos Previos
+- Node.js versión 18 o superior
+- npm versión 9 o superior
+
+### 8.2. Clonación e Instalación
 ```bash
 git clone https://github.com/ivnmtz09/simulacion-conteo.git
 cd simulacion-conteo
-```
-
-### 2. Instalar dependencias
-```bash
 npm install
 ```
 
-### 3. Configurar variables de entorno (`.env`)
-```bash
-cp .env.example .env
-```
-Configura tus credenciales de Firebase en `.env`:
+### 8.3. Configuración de Variables de Entorno
+Cree un archivo `.env` en la raíz del proyecto tomando como referencia `.env.example`:
+
 ```env
 VITE_FIREBASE_API_KEY=tu_api_key
 VITE_FIREBASE_AUTH_DOMAIN=tu_proyecto.firebaseapp.com
@@ -165,27 +169,34 @@ VITE_FIREBASE_MESSAGING_SENDER_ID=tu_messaging_sender_id
 VITE_FIREBASE_APP_ID=tu_app_id
 ```
 
-### 4. Servidor de desarrollo
+### 8.4. Comandos de Operación
 ```bash
+# Iniciar servidor de desarrollo
 npm run dev
-```
 
-### 5. Verificación de calidad y compilación
-```bash
-# Linter (Oxlint)
+# Ejecutar análisis estático (Oxlint)
 npm run lint
 
-# Verificación de tipos TypeScript y Bundle de Producción
+# Compilar paquete de producción y verificar tipos TypeScript
 npm run build
 ```
 
 ---
 
-## 👥 Equipo del Proyecto
+## 9. Equipo de Trabajo y Asesoría Académica
 
-Proyecto desarrollado para levantamiento de aforos y simulación de tránsito en Riohacha, La Guajira:
-- **Jesús Martínez** (`ijesusmartinez@uniguajira.edu.co`)
-- **Louis Sierra** (`llouissierra@uniguajira.edu.co`)
-- **Enrique Iguarán** (`jenriqueiguaran@uniguajira.edu.co`)
-- **Luis Angulo** (`ljangulo@uniguajira.edu.co`)
-- **Conorio Zárate** (`conoriozarate@uniguajira.edu.co`)
+### Docentes Asesores del Proyecto
+- **Docente Líder Aforo Vial:** Marlyn Aaron
+- **Docente Líder Aforo Universitario:** Robert Quintero
+
+### Equipo de Desarrollo e Investigación
+- Jesús Martínez (`ijesusmartinez@uniguajira.edu.co`)
+- Louis Sierra (`llouissierra@uniguajira.edu.co`)
+- Enrique Iguarán (`jenriqueiguaran@uniguajira.edu.co`)
+- Luis Angulo (`ljangulo@uniguajira.edu.co`)
+- Conorio Zárate (`conoriozarate@uniguajira.edu.co`)
+- Juan Zárate (`jazarate@uniguajira.edu.co`)
+- Anderson Rodríguez (`aprodriguezrodriguez@uniguajira.edu.co`)
+- Santiago Beltrán (`scbeltran@uniguajira.edu.co`)
+- Yasser Salgado (`ymsalgado@uniguajira.edu.co`)
+- Moisés Navarro (`mjesusnavarro@uniguajira.edu.co`)

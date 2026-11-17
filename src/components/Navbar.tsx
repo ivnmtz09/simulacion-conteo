@@ -14,6 +14,7 @@ import {
   Car
 } from 'lucide-react';
 import type { SesionConteo } from '../types/conteo';
+import { LogoIsotipo } from './LogoIsotipo';
 
 interface NavbarProps {
   usuarioActual: string | null;
@@ -62,11 +63,9 @@ export const Navbar: React.FC<NavbarProps> = ({
         {/* Top bar: Brand + Switcher de Módulo + Session info + User actions */}
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
-            {/* Logo AC Uniguajira */}
+            {/* Logo Isotipo Uniguajira */}
             <div className="relative group shrink-0">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 via-sky-600 to-emerald-500 flex items-center justify-center font-black text-white text-xs shadow-md shadow-sky-950/50 border border-white/20">
-                AC
-              </div>
+              <LogoIsotipo className="w-9 h-9 drop-shadow-md" />
             </div>
 
             <div className="min-w-0">

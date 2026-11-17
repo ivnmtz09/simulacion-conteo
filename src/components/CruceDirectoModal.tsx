@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Zap, Check, Disc } from 'lucide-react';
-import type { TipoVehiculo, EventoConteo } from '../types/conteo';
+import type { TipoVehiculo, EventoConteo, ConfiguracionSemaforo } from '../types/conteo';
 import { TIPOS_VEHICULOS, LISTA_TIPOS_VEHICULOS } from '../types/conteo';
 import { VehiculoIcono } from './VehiculoIcono';
 import {
@@ -17,6 +17,7 @@ interface CruceDirectoModalProps {
   sesionId: string;
   usuario: string;
   inicioCicloSemaforo?: number | null;
+  configSemaforo?: ConfiguracionSemaforo;
   onCerrar: () => void;
   onRegistrarEvento: (nuevoEvento: Omit<EventoConteo, 'id'>) => Promise<void>;
 }
@@ -28,6 +29,7 @@ export const CruceDirectoModal: React.FC<CruceDirectoModalProps> = ({
   sesionId,
   usuario,
   inicioCicloSemaforo,
+  configSemaforo,
   onCerrar,
   onRegistrarEvento
 }) => {
@@ -46,7 +48,8 @@ export const CruceDirectoModal: React.FC<CruceDirectoModalProps> = ({
 
   if (!abierto) return null;
 
-  const estadoSemaforo = calcularEstadoSemaforo(ahoraMs, inicioCicloSemaforo);
+  const duracionCiclo = configSemaforo?.cicloTotalSeg || DURACION_CICLO_SEG;
+  const estadoSemaforo = calcularEstadoSemaforo(ahoraMs, inicioCicloSemaforo, configSemaforo);
   const infoFase = obtenerInfoFase(estadoSemaforo.fase);
 
   // Filtrar tipos de vehículos motorizados (no peatón)
@@ -63,7 +66,7 @@ export const CruceDirectoModal: React.FC<CruceDirectoModalProps> = ({
       const ahoraIso = new Date(ahora).toISOString();
 
       // Cálculo automático de la fase semafórica en el instante exacto del cruce
-      const estadoCruce = calcularEstadoSemaforo(ahora, inicioCicloSemaforo);
+      const estadoCruce = calcularEstadoSemaforo(ahora, inicioCicloSemaforo, configSemaforo);
       const categoriaSalida = mapearFaseACategoria(estadoCruce.fase);
 
       const nuevoEvento: Omit<EventoConteo, 'id'> = {
@@ -183,7 +186,7 @@ export const CruceDirectoModal: React.FC<CruceDirectoModalProps> = ({
                   </div>
                   <div className="text-[11px] text-slate-400">
                     {estadoSemaforo.sincronizado
-                      ? `Segundo ${estadoSemaforo.segundoEnCiclo} / ${DURACION_CICLO_SEG}s • Ciclo #${estadoSemaforo.numeroCiclo}`
+                      ? `Segundo ${estadoSemaforo.segundoEnCiclo} / ${duracionCiclo}s • Ciclo #${estadoSemaforo.numeroCiclo}`
                       : 'Semáforo sin sincronizar en la sesión'}
                   </div>
                 </div>

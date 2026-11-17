@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { X, CheckSquare, Square, Play, AlertCircle, MapPin, Tag, Check, Users } from 'lucide-react';
+import { X, CheckSquare, Square, Play, AlertCircle, MapPin, Tag, Check, Users, Compass } from 'lucide-react';
 import type { TipoVehiculo, SesionConteo } from '../types/conteo';
 import { TIPOS_VEHICULOS, LISTA_TIPOS_VEHICULOS } from '../types/conteo';
 import { db, collection, addDoc } from '../lib/firebase';
 import { VehiculoIcono } from './VehiculoIcono';
+import { PUNTOS_AFORO_VIAL, CONFIG_SEMAFORO_POR_DEFECTO } from '../config/equipo';
 
 interface NuevaSesionModalProps {
   abierto: boolean;
@@ -41,13 +42,27 @@ const NuevaSesionDialog: React.FC<NuevaSesionDialogProps> = ({
   onSesionCreada
 }) => {
   const [nombre, setNombre] = useState('');
-  const [ubicacion, setUbicacion] = useState('');
+  const [puntoSeleccionadoId, setPuntoSeleccionadoId] = useState<string>(PUNTOS_AFORO_VIAL[0].id);
+  const [ubicacion, setUbicacion] = useState(
+    `${PUNTOS_AFORO_VIAL[0].nombre} (${PUNTOS_AFORO_VIAL[0].sentido})`
+  );
   // 1. Tipos monitoreados por la sesión en general (inician limpios)
   const [tiposSeleccionados, setTiposSeleccionados] = useState<TipoVehiculo[]>([]);
   // 2. Tipos que el creador contará personalmente (inician limpios)
   const [misTipos, setMisTipos] = useState<TipoVehiculo[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
+
+  const puntoSeleccionado = PUNTOS_AFORO_VIAL.find((p) => p.id === puntoSeleccionadoId) || PUNTOS_AFORO_VIAL[0];
+
+  // Manejar cambio de punto de aforo
+  const handleSeleccionarPunto = (puntoId: string) => {
+    setPuntoSeleccionadoId(puntoId);
+    const punto = PUNTOS_AFORO_VIAL.find((p) => p.id === puntoId);
+    if (punto) {
+      setUbicacion(`${punto.nombre} (${punto.sentido})`);
+    }
+  };
 
   // Toggle de tipos monitoreados en la sesión general
   const toggleTipoSesion = (tipo: TipoVehiculo) => {
@@ -113,7 +128,9 @@ const NuevaSesionDialog: React.FC<NuevaSesionDialogProps> = ({
 
       const nuevaSesionData: Omit<SesionConteo, 'id'> = {
         nombre: nombre.trim(),
-        ubicacion: ubicacion.trim() || 'Intersección principal',
+        ubicacion: ubicacion.trim() || puntoSeleccionado.nombre,
+        puntoId: puntoSeleccionadoId,
+        configSemaforo: puntoSeleccionado.configSemaforo || CONFIG_SEMAFORO_POR_DEFECTO,
         usuario: usuarioActual,
         participantes: [usuarioActual],
         asignaciones: asignacionesIniciales,
@@ -143,7 +160,9 @@ const NuevaSesionDialog: React.FC<NuevaSesionDialogProps> = ({
       const sesionLocal: SesionConteo = {
         id: 'local_' + Date.now(),
         nombre: nombre.trim(),
-        ubicacion: ubicacion.trim() || 'Intersección principal',
+        ubicacion: ubicacion.trim() || puntoSeleccionado.nombre,
+        puntoId: puntoSeleccionadoId,
+        configSemaforo: puntoSeleccionado.configSemaforo || CONFIG_SEMAFORO_POR_DEFECTO,
         usuario: usuarioActual,
         participantes: [usuarioActual],
         asignaciones: asignacionesIniciales,
@@ -161,21 +180,27 @@ const NuevaSesionDialog: React.FC<NuevaSesionDialogProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-xl p-5 sm:p-6 shadow-2xl relative my-8">
+    <div
+      className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="modal-nueva-sesion-titulo"
+    >
+      <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-xl p-5 sm:p-6 shadow-2xl relative my-8">
         <button
           onClick={onCerrar}
-          className="absolute top-4 right-4 text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition"
+          className="absolute top-4 right-4 text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+          aria-label="Cerrar modal"
         >
           <X className="w-5 h-5" />
         </button>
 
         <div className="mb-5">
-          <h2 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2">
-            <span>Nueva Sesión de Conteo</span>
+          <h2 id="modal-nueva-sesion-titulo" className="text-lg sm:text-xl font-bold text-white flex items-center gap-2">
+            <span>Nueva Sesión de Conteo Vial</span>
           </h2>
           <p className="text-xs text-slate-400 mt-1">
-            Define la intersección, qué tipos monitoreará la sesión en general y cuáles contarás tú personalmente.
+            Selecciona el punto de aforo, configura la sesión y asigna tus categorías de conteo.
           </p>
         </div>
 
@@ -187,6 +212,53 @@ const NuevaSesionDialog: React.FC<NuevaSesionDialogProps> = ({
         )}
 
         <form onSubmit={handleCrear} className="space-y-4">
+          {/* SELECCIÓN DE PUNTO DE AFORO INTERACTIVO */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-300 mb-1.5 flex items-center gap-1.5">
+              <Compass className="w-3.5 h-3.5 text-blue-400" />
+              <span>Punto de Aforo e Intersección Semafórica *</span>
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              {PUNTOS_AFORO_VIAL.map((p) => {
+                const activo = puntoSeleccionadoId === p.id;
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => handleSeleccionarPunto(p.id)}
+                    className={`p-3 rounded-2xl border text-left transition flex flex-col justify-between gap-1.5 cursor-pointer ${
+                      activo
+                        ? 'bg-blue-950/40 border-blue-500/80 shadow-md shadow-blue-500/10'
+                        : 'bg-slate-950/60 border-slate-800 hover:border-slate-700 opacity-80 hover:opacity-100'
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-black text-white flex items-center gap-1.5">
+                          <MapPin className={`w-3.5 h-3.5 shrink-0 ${activo ? 'text-blue-400' : 'text-slate-500'}`} />
+                          <span className="truncate">{p.nombre}</span>
+                        </span>
+                        {activo && (
+                          <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
+                        )}
+                      </div>
+                      <span className="text-[11px] text-slate-400 block mt-0.5 truncate">
+                        {p.sentido}
+                      </span>
+                    </div>
+
+                    <div className="mt-1 pt-1.5 border-t border-slate-800/80 flex items-center justify-between text-[10px] font-mono">
+                      <span className="text-emerald-400 font-bold">{p.configSemaforo.verdeSeg}s V</span>
+                      <span className="text-amber-400 font-bold">{p.configSemaforo.amarillo1Seg}s / {p.configSemaforo.amarillo2Seg}s A</span>
+                      <span className="text-rose-400 font-bold">{p.configSemaforo.rojoSeg}s R</span>
+                      <span className="text-blue-300 font-bold">Total {p.configSemaforo.cicloTotalSeg}s</span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           <div>
             <label className="block text-xs font-semibold text-slate-300 mb-1">
               Nombre de la Sesión (Día y fecha) *
@@ -198,7 +270,7 @@ const NuevaSesionDialog: React.FC<NuevaSesionDialogProps> = ({
                 required
                 value={nombre}
                 onChange={(e) => setNombre(e.target.value)}
-                placeholder="Nombre (Día y fecha, ej: Lunes 06 de Octubre)"
+                placeholder="Nombre (ej: Lunes 17 de Noviembre - Turno Mañana)"
                 className="w-full bg-slate-800 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
               />
             </div>
@@ -206,7 +278,7 @@ const NuevaSesionDialog: React.FC<NuevaSesionDialogProps> = ({
 
           <div>
             <label className="block text-xs font-semibold text-slate-300 mb-1">
-              Ubicación (Semáforo X)
+              Detalle de Ubicación o Carril
             </label>
             <div className="relative">
               <MapPin className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
@@ -214,7 +286,7 @@ const NuevaSesionDialog: React.FC<NuevaSesionDialogProps> = ({
                 type="text"
                 value={ubicacion}
                 onChange={(e) => setUbicacion(e.target.value)}
-                placeholder="Ubicación (Semáforo X, ej: Semáforo 1 - Cra 8 con Cll 15)"
+                placeholder="Ubicación detallada"
                 className="w-full bg-slate-800 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
               />
             </div>
@@ -373,7 +445,7 @@ const NuevaSesionDialog: React.FC<NuevaSesionDialogProps> = ({
             <button
               type="submit"
               disabled={guardando}
-              className="touch-btn w-full py-3 rounded-xl font-bold text-sm bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+              className="touch-btn w-full py-3 rounded-xl font-bold text-sm bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-400"
             >
               <Play className="w-4 h-4 fill-current" />
               <span>{guardando ? 'Iniciando Sesión...' : 'Comenzar Conteo Ahora'}</span>

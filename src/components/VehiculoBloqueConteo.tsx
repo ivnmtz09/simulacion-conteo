@@ -16,7 +16,7 @@ import {
   X,
   ChevronRight
 } from 'lucide-react';
-import type { TipoVehiculo, EventoConteo, CategoriaSalidaVehiculo, MovimientoGiro, VehiculoEnServidor, FaseSemaforo } from '../types/conteo';
+import type { TipoVehiculo, EventoConteo, CategoriaSalidaVehiculo, MovimientoGiro, VehiculoEnServidor, FaseSemaforo, ConfiguracionSemaforo } from '../types/conteo';
 import { TIPOS_VEHICULOS } from '../types/conteo';
 import { CruceDirectoModal } from './CruceDirectoModal';
 import { VehiculoIcono } from './VehiculoIcono';
@@ -28,6 +28,7 @@ interface VehiculoBloqueConteoProps {
   sesionId: string;
   usuario: string;
   inicioCicloSemaforo?: number | null;
+  configSemaforo?: ConfiguracionSemaforo;
   colaMemoria: number[];
   servidorMemoria?: VehiculoEnServidor[];
   onActualizarCola: (nuevaCola: number[]) => void;
@@ -60,6 +61,7 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
   sesionId,
   usuario,
   inicioCicloSemaforo,
+  configSemaforo,
   colaMemoria: _colaMemoria,
   servidorMemoria: _servidorMemoria = [],
   onActualizarCola: _onActualizarCola,
@@ -229,7 +231,11 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
       timestampCreacion: ahoraMs
     };
 
-    await onRegistrarEvento(nuevoEvento);
+    try {
+      await onRegistrarEvento(nuevoEvento);
+    } catch (err) {
+      console.error('Error al registrar entrada a la cola:', err);
+    }
   };
 
   // Marcar vehículo como parqueado en carril
@@ -245,7 +251,11 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
       timestampCreacion: ahoraMs,
       esParqueado: true
     };
-    await onRegistrarEvento(nuevoEvento);
+    try {
+      await onRegistrarEvento(nuevoEvento);
+    } catch (err) {
+      console.error('Error al marcar vehículo parqueado:', err);
+    }
   };
 
   // Desmarcar vehículo parqueado
@@ -261,7 +271,11 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
       timestampCreacion: ahoraMs,
       esParqueado: false
     };
-    await onRegistrarEvento(nuevoEvento);
+    try {
+      await onRegistrarEvento(nuevoEvento);
+    } catch (err) {
+      console.error('Error al desmarcar vehículo parqueado:', err);
+    }
   };
 
   // 2. Llega al servidor (semáforo)
@@ -299,7 +313,11 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
       timestampCreacion: ahoraMs
     };
 
-    await onRegistrarEvento(nuevoEvento);
+    try {
+      await onRegistrarEvento(nuevoEvento);
+    } catch (err) {
+      console.error('Error al registrar llegada al semáforo:', err);
+    }
   };
 
   // 3. Cruza vehículo — Solo si M >= 1
@@ -325,7 +343,7 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
     const tiempoEnServidorSeg = Math.max(0, Math.round((ahoraMs - tLlegada) / 1000));
     const tiempoTotalSeg = Math.max(0, Math.round((ahoraMs - tEntrada) / 1000));
 
-    const estadoSemaforo = calcularEstadoSemaforo(ahoraMs, inicioCicloSemaforo);
+    const estadoSemaforo = calcularEstadoSemaforo(ahoraMs, inicioCicloSemaforo, configSemaforo);
     const categoria = mapearFaseACategoria(estadoSemaforo.fase);
 
     setAnimandoCruce(true);
@@ -363,7 +381,11 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
       timestampCreacion: ahoraMs
     };
 
-    await onRegistrarEvento(nuevoEvento);
+    try {
+      await onRegistrarEvento(nuevoEvento);
+    } catch (err) {
+      console.error('Error al registrar cruce de vehículo:', err);
+    }
   };
 
   // 4. Giros independientes
@@ -381,7 +403,11 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
       timestampCreacion: ahoraMs
     };
 
-    await onRegistrarEvento(nuevoEvento);
+    try {
+      await onRegistrarEvento(nuevoEvento);
+    } catch (err) {
+      console.error('Error al registrar giro:', err);
+    }
   };
 
   // Deshacer (Undo) funcional y multi-nivel con feedback visual
@@ -883,6 +909,7 @@ export const VehiculoBloqueConteo: React.FC<VehiculoBloqueConteoProps> = ({
         sesionId={sesionId}
         usuario={usuario}
         inicioCicloSemaforo={inicioCicloSemaforo}
+        configSemaforo={configSemaforo}
         onCerrar={() => setModalCruceDirectoAbierto(false)}
         onRegistrarEvento={onRegistrarEvento}
       />

@@ -1,10 +1,18 @@
-import type { FaseSemaforo, CategoriaSalidaVehiculo } from '../types/conteo';
+import type { FaseSemaforo, CategoriaSalidaVehiculo, ConfiguracionSemaforo } from '../types/conteo';
 
 export const DURACION_CICLO_SEG = 95;
 export const DURACION_VERDE_SEG = 18;
 export const DURACION_AMARILLO_SEG = 3;
 export const DURACION_ROJO_SEG = 72;
 export const DURACION_AMARILLO_FINAL_SEG = 2;
+
+export const CONFIG_SEMAFORO_POR_DEFECTO: ConfiguracionSemaforo = {
+  verdeSeg: DURACION_VERDE_SEG,
+  amarillo1Seg: DURACION_AMARILLO_SEG,
+  rojoSeg: DURACION_ROJO_SEG,
+  amarillo2Seg: DURACION_AMARILLO_FINAL_SEG,
+  cicloTotalSeg: DURACION_CICLO_SEG
+};
 
 export interface EstadoSemaforoCalculado {
   sincronizado: boolean;
@@ -45,17 +53,18 @@ export function normalizarTimestampMs(valor: unknown): number | null {
 
 /**
  * Calcula determinísticamente la fase y estado actual del semáforo a partir
- * de un ciclo continuo de 95 segundos (18s Verde, 3s Amarillo -> Rojo, 72s Rojo, 2s Amarillo -> Verde).
+ * de la configuración semafórica del sector (por defecto 95 segundos: 18s Verde, 3s Amarillo -> Rojo, 72s Rojo, 2s Amarillo -> Verde).
  * 
  * Intervalos:
- * [0, 18)   -> Verde (18 segundos)
- * [18, 21)  -> Amarillo post-verde hacia rojo (3 segundos)
- * [21, 93)  -> Rojo (72 segundos)
- * [93, 95)  -> Amarillo pre-verde hacia verde (2 segundos)
+ * [0, limVerde)              -> Verde
+ * [limVerde, limAmarillo1)   -> Amarillo post-verde hacia rojo
+ * [limAmarillo1, limRojo)    -> Rojo
+ * [limRojo, cicloTotal)      -> Amarillo pre-verde hacia verde
  */
 export function calcularEstadoSemaforo(
   timestampMs: number,
-  inicioCicloMs?: unknown
+  inicioCicloMs?: unknown,
+  config: ConfiguracionSemaforo = CONFIG_SEMAFORO_POR_DEFECTO
 ): EstadoSemaforoCalculado {
   const t0 = normalizarTimestampMs(inicioCicloMs);
   if (!t0) {
@@ -71,37 +80,38 @@ export function calcularEstadoSemaforo(
     };
   }
 
+  const cicloSeg = config?.cicloTotalSeg || DURACION_CICLO_SEG;
+  const verdeSeg = config?.verdeSeg ?? DURACION_VERDE_SEG;
+  const amarillo1Seg = config?.amarillo1Seg ?? DURACION_AMARILLO_SEG;
+  const rojoSeg = config?.rojoSeg ?? DURACION_ROJO_SEG;
+
   const diffMs = Math.max(0, timestampMs - t0);
   const segundosDesdeInicio = diffMs / 1000;
-  const segundoEnCicloExacto = segundosDesdeInicio % DURACION_CICLO_SEG;
+  const segundoEnCicloExacto = segundosDesdeInicio % cicloSeg;
   const segundoEnCiclo = Math.floor(segundoEnCicloExacto);
-  const numeroCiclo = Math.floor(segundosDesdeInicio / DURACION_CICLO_SEG) + 1;
+  const numeroCiclo = Math.floor(segundosDesdeInicio / cicloSeg) + 1;
   const tiempoDesdeSincronizacionMin = Math.floor(segundosDesdeInicio / 60);
   const requiereResincronizacion = tiempoDesdeSincronizacionMin >= 30;
 
   let fase: FaseSemaforo;
   let segundosRestantesFase: number;
 
-  const limVerde = DURACION_VERDE_SEG; // 18s
-  const limAmarillo1 = limVerde + DURACION_AMARILLO_SEG; // 21s
-  const limRojo = limAmarillo1 + DURACION_ROJO_SEG; // 93s
+  const limVerde = verdeSeg;
+  const limAmarillo1 = limVerde + amarillo1Seg;
+  const limRojo = limAmarillo1 + rojoSeg;
 
   if (segundoEnCicloExacto < limVerde) {
-    // 0 a 18s -> Verde
     fase = 'verde';
     segundosRestantesFase = Math.max(1, Math.ceil(limVerde - segundoEnCicloExacto));
   } else if (segundoEnCicloExacto < limAmarillo1) {
-    // 18s a 21s -> Amarillo (post-verde hacia rojo)
     fase = 'amarillo';
     segundosRestantesFase = Math.max(1, Math.ceil(limAmarillo1 - segundoEnCicloExacto));
   } else if (segundoEnCicloExacto < limRojo) {
-    // 21s a 93s -> Rojo
     fase = 'rojo';
     segundosRestantesFase = Math.max(1, Math.ceil(limRojo - segundoEnCicloExacto));
   } else {
-    // 93s a 95s -> Amarillo (pre-verde hacia verde de cierre de ciclo)
     fase = 'amarillo';
-    segundosRestantesFase = Math.max(1, Math.ceil(DURACION_CICLO_SEG - segundoEnCicloExacto));
+    segundosRestantesFase = Math.max(1, Math.ceil(cicloSeg - segundoEnCicloExacto));
   }
 
   return {

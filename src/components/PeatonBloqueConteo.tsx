@@ -101,7 +101,11 @@ export const PeatonBloqueConteo: React.FC<PeatonBloqueConteoProps> = ({
       timestampCreacion: ahoraMs
     };
 
-    await onRegistrarEvento(nuevoEvento);
+    try {
+      await onRegistrarEvento(nuevoEvento);
+    } catch (err) {
+      console.error('Error al registrar cruce peatonal:', err);
+    }
   };
 
   const handleDeshacer = async (e?: React.MouseEvent) => {

@@ -24,7 +24,7 @@ interface HistorialSesionesProps {
   sesionActivaId: string | null;
   todosLosEventos: EventoConteo[];
   onSeleccionarSesion: (sesion: SesionConteo) => void;
-  onCerrarSesionActiva: () => Promise<void>;
+  onCerrarSesionActiva: () => Promise<void> | void;
   onEliminarSesionLocal?: (id: string) => void;
   onAbrirUnirse?: (sesion: SesionConteo) => void;
   onRestaurarSesion?: (sesion: SesionConteo, continuarConteo?: boolean) => void;
