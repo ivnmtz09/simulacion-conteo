@@ -156,6 +156,11 @@ export interface PuntoAforoVial {
   descripcion: string;
   interseccion: string;
   sentido: string;
+  coordenadas: {
+    lat: number;
+    lng: number;
+  };
+  coordenadasTexto: string;
   configSemaforo: ConfiguracionSemaforo;
 }
 

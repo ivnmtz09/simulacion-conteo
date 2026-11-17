@@ -42,6 +42,9 @@ type VistaApp = 'landing' | 'conteo' | 'eventos' | 'historial' | 'papelera';
 
 function resolverRuta(path: string, user: string | null): { vista: VistaApp; modulo: 'vial' | 'universitario' | null; invalida: boolean } {
   const normalizado = path.toLowerCase().replace(/\/+$/, '') || '/';
+  if (normalizado.startsWith('/__/')) {
+    return { vista: 'landing', modulo: null, invalida: false };
+  }
   if (normalizado === '/' || normalizado === '/landing' || normalizado === '/inicio') {
     if (!user || normalizado === '/landing' || normalizado === '/inicio') {
       return { vista: 'landing', modulo: null, invalida: false };
@@ -564,6 +567,17 @@ export default function App() {
   // Pantalla Splash mientras Firebase resuelve la autenticación
   if (authLoading) {
     return <SplashScreen />;
+  }
+
+  // Si la ruta pertenece a los manejadores internos de Firebase Auth (/__/*), no interceptar ni mostrar 404
+  if (typeof window !== 'undefined' && window.location.pathname.startsWith('/__/')) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4 text-center">
+        <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4" />
+        <p className="text-sm font-semibold text-slate-300">Autenticando con Google en servidor...</p>
+        <p className="text-xs text-slate-500 mt-1">Por favor espera un momento mientras se procesa la credencial institucional.</p>
+      </div>
+    );
   }
 
   // Manejo de rutas inexistentes (404)

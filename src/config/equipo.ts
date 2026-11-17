@@ -63,18 +63,28 @@ export const CONFIG_SEMAFORO_PUNTO_2: ConfiguracionSemaforo = {
 export const PUNTOS_AFORO_VIAL: PuntoAforoVial[] = [
   {
     id: 'punto_calle15_cra8',
-    nombre: 'Semáforo Calle 15 con Carrera 8',
+    nombre: 'Semáforo Suchiimma (Calle 15 con Carrera 8)',
     descripcion: 'Troncal del Caribe - Sentido Riohacha → Santa Marta',
-    interseccion: 'Calle 15 con Carrera 8',
+    interseccion: 'Calle 15 con Carrera 8 (Suchiimma)',
     sentido: 'Riohacha → Santa Marta',
+    coordenadas: {
+      lat: 11.543270,
+      lng: -72.907971
+    },
+    coordenadasTexto: '11.543270, -72.907971',
     configSemaforo: CONFIG_SEMAFORO_PUNTO_1
   },
   {
     id: 'punto_cuatro_vias_cra15',
     nombre: 'Semáforo Cuatro Vías (Calle 15 con Carrera 15)',
     descripcion: 'Intersección Cuatro Vías - Sentido Santa Marta → Riohacha',
-    interseccion: 'Calle 15 con Carrera 15',
+    interseccion: 'Calle 15 con Carrera 15 (Cuatro Vías)',
     sentido: 'Santa Marta → Riohacha',
+    coordenadas: {
+      lat: 11.538317,
+      lng: -72.916888
+    },
+    coordenadasTexto: '11.538317, -72.916888',
     configSemaforo: CONFIG_SEMAFORO_PUNTO_2
   }
 ];

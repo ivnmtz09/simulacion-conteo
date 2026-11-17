@@ -166,6 +166,19 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   {p.descripcion}
                 </p>
 
+                {/* Coordenadas GPS */}
+                <div className="mt-2 flex items-center gap-2">
+                  <a
+                    href={`https://www.google.com/maps?q=${p.coordenadas.lat},${p.coordenadas.lng}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-300 border border-blue-500/20 text-[11px] font-mono transition"
+                    title="Ver en Google Maps"
+                  >
+                    <span>📍 GPS: {p.coordenadasTexto}</span>
+                  </a>
+                </div>
+
                 {/* Tiempos del ciclo */}
                 <div className="mt-4 p-3 rounded-2xl bg-slate-950/80 border border-slate-800 space-y-2">
                   <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">

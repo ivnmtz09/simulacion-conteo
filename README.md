@@ -24,8 +24,9 @@ A diferencia de los instrumentos convencionales de aforo por pulso simple, esta 
 
 El sistema dispone de configuraciones predeterminadas para los puntos de estudio en la Troncal del Caribe e intersecciones estratégicas de Riohacha:
 
-### Punto 1: Semáforo Calle 15 con Carrera 8
-- **Ubicación:** Troncal del Caribe (Sentido Riohacha hacia Santa Marta).
+### Punto 1: Semáforo Suchiimma (Calle 15 con Carrera 8)
+- **Ubicación:** Troncal del Caribe (Sentido Riohacha hacia Santa Marta - Sector Suchiimma).
+- **Coordenadas GPS:** `11.543270, -72.907971`
 - **Duración Total del Ciclo:** $T_1 = 95\text{ segundos}$.
 - **Distribución de Tiempos:**
   - Fase Verde: $18\text{ s}$ ($[0, 18)\text{ s}$) — Cruce permitido.
@@ -35,6 +36,7 @@ El sistema dispone de configuraciones predeterminadas para los puntos de estudio
 
 ### Punto 2: Semáforo Cuatro Vías (Calle 15 con Carrera 15)
 - **Ubicación:** Intersección Cuatro Vías (Sentido Santa Marta hacia Riohacha).
+- **Coordenadas GPS:** `11.538317, -72.916888`
 - **Duración Total del Ciclo:** $T_2 = 130\text{ segundos}$.
 - **Distribución de Tiempos:**
   - Fase Verde: $25\text{ s}$ ($[0, 25)\text{ s}$) — Cruce permitido.
@@ -100,24 +102,11 @@ El sistema clasifica el parque automotor según la normativa de transporte y cal
 
 El esquema de seguridad se sustenta en Firebase Authentication y Reglas de Seguridad de Cloud Firestore:
 
-- **Dominio Institucional:** Acceso autorizado a usuarios con cuentas oficiales pertenecientes al dominio `@uniguajira.edu.co`.
-- **Listas de Brigada:** Definición de roles asignados por punto de conteo:
-  - **Brigada Punto 1 (Calle 15 con Carrera 8):**
-    - `ijesusmartinez@uniguajira.edu.co`
-    - `llouissierra@uniguajira.edu.co`
-    - `jenriqueiguaran@uniguajira.edu.co`
-    - `ljangulo@uniguajira.edu.co`
-    - `conoriozarate@uniguajira.edu.co`
-  - **Brigada Punto 2 (Cuatro Vías - Calle 15 con Carrera 15):**
-    - `jazarate@uniguajira.edu.co`
-    - `aprodriguezrodriguez@uniguajira.edu.co`
-    - `scbeltran@uniguajira.edu.co`
-    - `ymsalgado@uniguajira.edu.co`
-    - `mjesusnavarro@uniguajira.edu.co`
-  - **Brigada Aforo Peatonal Universitario:**
-    - `janiez@uniguajira.edu.co`
-    - `bcamilobrito@uniguajira.edu.co`
-    - `sivanrodriguez@uniguajira.edu.co`
+- **Dominio Institucional Universal:** Acceso autorizado a cualquier usuario que posea una cuenta oficial perteneciente al dominio `@uniguajira.edu.co`.
+- **Distribución de Brigadas por Punto de Aforo:** Asignación coordinada de aforadores para distribución de tareas en campo:
+  - **Brigada Punto 1 (Suchiimma - Calle 15 con Carrera 8):** `ijesusmartinez`, `llouissierra`, `jenriqueiguaran`, `ljangulo`, `conoriozarate` (`@uniguajira.edu.co`).
+  - **Brigada Punto 2 (Cuatro Vías - Calle 15 con Carrera 15):** `jazarate`, `aprodriguezrodriguez`, `scbeltran`, `ymsalgado`, `mjesusnavarro` (`@uniguajira.edu.co`).
+  - **Brigada Aforo Peatonal Universitario:** `janiez`, `bcamilobrito`, `sivanrodriguez` (`@uniguajira.edu.co`).
 - **Reglas Declarativas (`firestore.rules`):** Verificación de procedencia de peticiones en lectura y escritura, garantizando segregación de roles y control de integridad en las colecciones `sesiones`, `eventos`, `sesionesAforoUni` y `eventosAforoUni`.
 
 ---
@@ -190,13 +179,7 @@ npm run build
 - **Docente Líder Aforo Universitario:** Robert Quintero
 
 ### Equipo de Desarrollo e Investigación
-- Jesús Martínez (`ijesusmartinez@uniguajira.edu.co`)
-- Louis Sierra (`llouissierra@uniguajira.edu.co`)
-- Enrique Iguarán (`jenriqueiguaran@uniguajira.edu.co`)
-- Luis Angulo (`ljangulo@uniguajira.edu.co`)
-- Conorio Zárate (`conoriozarate@uniguajira.edu.co`)
-- Juan Zárate (`jazarate@uniguajira.edu.co`)
-- Anderson Rodríguez (`aprodriguezrodriguez@uniguajira.edu.co`)
-- Santiago Beltrán (`scbeltran@uniguajira.edu.co`)
-- Yasser Salgado (`ymsalgado@uniguajira.edu.co`)
-- Moisés Navarro (`mjesusnavarro@uniguajira.edu.co`)
+- Ivan Martinez (`ivnmtz09`)
+
+### Cobertura de Acceso a la Plataforma
+El acceso a la plataforma está habilitado de forma universal para todos los miembros, estudiantes y docentes de la comunidad universitaria que posean una cuenta activa bajo el dominio institucional **`@uniguajira.edu.co`**, garantizando la recolección distribuida de datos en ambos puntos semafóricos y en los bloques académicos.

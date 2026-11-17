@@ -170,6 +170,7 @@ const EditarSesionDialog: React.FC<EditarSesionDialogProps> = ({
                       {activo && <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />}
                     </div>
                     <span className="text-[10px] text-slate-400 truncate">{p.sentido}</span>
+                    <span className="text-[10px] text-slate-500 font-mono">📍 GPS: {p.coordenadasTexto}</span>
                     <div className="mt-1 pt-1 border-t border-slate-800 text-[10px] font-mono flex items-center justify-between text-slate-300">
                       <span className="text-emerald-400">{p.configSemaforo.verdeSeg}s V</span>
                       <span className="text-rose-400">{p.configSemaforo.rojoSeg}s R</span>

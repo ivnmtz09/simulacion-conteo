@@ -112,8 +112,9 @@ export function exportarAforoUniXLSX(
 
   // Nombre de archivo limpio y descriptivo
   const bloqueSaneado = sesion.bloque.replace(/[^a-zA-Z0-9]/g, '_');
+  const usuarioPrefix = (sesion.usuario || 'usuario').split('@')[0].replace(/[^a-zA-Z0-9_-]/g, '_');
   const fechaStr = new Date().toISOString().slice(0, 10);
-  const nombreArchivo = `Aforo_Uniguajira_${bloqueSaneado}_${fechaStr}.xlsx`;
+  const nombreArchivo = `Aforo_Uniguajira_${bloqueSaneado}_${usuarioPrefix}_${fechaStr}.xlsx`;
 
   XLSX.writeFile(wb, nombreArchivo);
 }
@@ -135,6 +136,7 @@ export function exportarAforoUniCSV(
       'Cantidad',
       'Aforo_Momento',
       'Usuario',
+      'Correo',
       'Notas'
     ]
   ];
@@ -150,6 +152,7 @@ export function exportarAforoUniCSV(
       `"${(ev.puerta || 'Entrada Frontal').replace(/"/g, '""')}"`,
       String(ev.cantidad),
       String(ev.aforoMomento),
+      (ev.usuario || '').split('@')[0],
       ev.usuario,
       `"${(ev.nota || '').replace(/"/g, '""')}"`
     ]);
@@ -160,9 +163,10 @@ export function exportarAforoUniCSV(
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   const bloqueSaneado = sesion.bloque.replace(/[^a-zA-Z0-9]/g, '_');
+  const usuarioPrefix = (sesion.usuario || 'usuario').split('@')[0].replace(/[^a-zA-Z0-9_-]/g, '_');
   const fechaStr = new Date().toISOString().slice(0, 10);
   a.href = url;
-  a.download = `Aforo_Uniguajira_${bloqueSaneado}_${fechaStr}.csv`;
+  a.download = `Aforo_Uniguajira_${bloqueSaneado}_${usuarioPrefix}_${fechaStr}.csv`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);

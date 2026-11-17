@@ -13,6 +13,24 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <title>Sistema de Aforo y Conteo - Uniguajira</title>
+    <script>
+      // Si la URL pertenece al manejador interno de autenticación de Firebase (/__/auth/handler)
+      // y fue erróneamente interceptada o servida por un service worker previo,
+      // desregistramos los service workers y forzamos recarga directa desde la red.
+      if (window.location.pathname.startsWith('/__/')) {
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.getRegistrations().then(function(registrations) {
+            var promises = [];
+            for (var i = 0; i < registrations.length; i++) {
+              promises.push(registrations[i].unregister());
+            }
+            Promise.all(promises).then(function() {
+              window.location.reload();
+            });
+          });
+        }
+      }
+    </script>
   </head>
   <body class="h-full bg-slate-900 text-slate-100 antialiased select-none overflow-x-hidden">
     <div id="root" class="min-h-full flex flex-col">

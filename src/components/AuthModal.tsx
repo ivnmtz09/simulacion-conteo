@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { X, ShieldAlert, RefreshCw, CheckCircle2, Smartphone } from 'lucide-react';
 import { signInWithPopup, signInWithRedirect, signOut, auth, googleProvider } from '../lib/firebase';
-import { esCorreoAutorizado, CORREOS_EQUIPO } from '../config/equipo';
+import { esCorreoAutorizado } from '../config/equipo';
 import { LogoIsotipo } from './LogoIsotipo';
 
 interface AuthModalProps {
@@ -204,7 +204,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             </div>
 
             <div className="text-[11px] text-slate-500 pt-1">
-              Lista de acceso verificada: {CORREOS_EQUIPO.length} aforadores asignados.
+              Acceso abierto para todas las cuentas institucionales del dominio <span className="text-slate-400 font-semibold">@uniguajira.edu.co</span>
             </div>
           </div>
         )}

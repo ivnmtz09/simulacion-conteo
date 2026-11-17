@@ -68,6 +68,7 @@ function etiquetaTipoRegistro(tr?: string): string {
 export function generarFilasDetalle(sesion: SesionConteo, eventos: EventoConteo[]) {
   return eventos.map((ev, index) => {
     const infoVehiculo = TIPOS_VEHICULOS[ev.tipoVehiculo];
+    const usuarioPrefix = ev.usuario ? ev.usuario.split('@')[0] : 'N/A';
     const tiempoTotal =
       ev.tiempoTotalSeg !== null && ev.tiempoTotalSeg !== undefined
         ? ev.tiempoTotalSeg
@@ -82,11 +83,12 @@ export function generarFilasDetalle(sesion: SesionConteo, eventos: EventoConteo[
       'Nombre Sesión': sesion.nombre || 'Sesión sin nombre',
       'Ubicación': sesion.ubicacion || 'N/A',
       'Fecha y Hora': formatFecha(ev.timestampCreacion),
-      'Usuario': ev.usuario,
+      'Usuario': usuarioPrefix,
+      'Correo': ev.usuario || 'N/A',
       'Tipo de Vehículo': infoVehiculo?.nombre || ev.tipoVehiculo,
       'Tipo de Registro': etiquetaTipoRegistro(ev.tipoRegistro),
       'Fase Semáforo': ev.faseCruce ? ev.faseCruce.toUpperCase() : (ev.categoriaSalida === 'respeta' ? 'VERDE' : ev.categoriaSalida === 'se_vuela' ? 'ROJO' : 'N/A'),
-      'Segundo en Ciclo (0-95s)': ev.segundoEnCiclo !== null && ev.segundoEnCiclo !== undefined ? ev.segundoEnCiclo : 'N/A',
+      'Segundo en Ciclo': ev.segundoEnCiclo !== null && ev.segundoEnCiclo !== undefined ? ev.segundoEnCiclo : 'N/A',
       'Número de Ciclo': ev.numeroCiclo !== null && ev.numeroCiclo !== undefined ? ev.numeroCiclo : 'N/A',
       'Categoría Salida': etiquetaCategoria(ev.categoriaSalida),
       'Movimiento / Giro': ev.movimiento ? ev.movimiento.toUpperCase() : 'N/A',
@@ -203,7 +205,9 @@ export function exportarEventosXLSX(sesion: SesionConteo, eventos: EventoConteo[
   XLSX.utils.book_append_sheet(wb, wsDetalle, 'Eventos Detallados');
 
   const safeNombre = (sesion.nombre || 'aforo').replace(/[^a-zA-Z0-9_-]/g, '_');
-  const filename = `Aforo_${safeNombre}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+  const usuarioCreador = (sesion.usuario || 'usuario').split('@')[0].replace(/[^a-zA-Z0-9_-]/g, '_');
+  const fechaStr = new Date().toISOString().slice(0, 10);
+  const filename = `Aforo_${safeNombre}_${usuarioCreador}_${fechaStr}.xlsx`;
   XLSX.writeFile(wb, filename);
 }
 
@@ -218,8 +222,10 @@ export function exportarEventosCSV(sesion: SesionConteo, eventos: EventoConteo[]
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   const safeNombre = (sesion.nombre || 'aforo').replace(/[^a-zA-Z0-9_-]/g, '_');
+  const usuarioCreador = (sesion.usuario || 'usuario').split('@')[0].replace(/[^a-zA-Z0-9_-]/g, '_');
+  const fechaStr = new Date().toISOString().slice(0, 10);
   link.setAttribute('href', url);
-  link.setAttribute('download', `Aforo_${safeNombre}_${new Date().toISOString().slice(0, 10)}.csv`);
+  link.setAttribute('download', `Aforo_${safeNombre}_${usuarioCreador}_${fechaStr}.csv`);
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
